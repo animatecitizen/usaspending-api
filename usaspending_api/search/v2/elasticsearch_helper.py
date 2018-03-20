@@ -9,6 +9,12 @@ from usaspending_api.awards.v2.lookups.elasticsearch_lookups import AWARD_QUERY_
 
 from usaspending_api.core.elasticsearch.client import es_client_query
 from elasticsearch import Elasticsearch
+from pprint import pprint
+from collections import defaultdict
+import math
+import datetime
+import json
+
 
 logger = logging.getLogger('console')
 
@@ -244,17 +250,23 @@ def spending_by_transaction_sum_and_count(request_data):
     return get_sum_and_count_aggregation_results(request_data['keyword'])
 
 
+###################################
+####                      #########
+####     THUNDER DOME     #########
+####                      #########
+###################################
 
-AWARDS_INDEX = 'thunderdome-transactions'
+
+AWARDS_INDEX = 'awards-temp*'
 ES_FILTER_FIELDS = ['recipient_location', 'pop']
 RANGE_QUERIES = ['action_date', 'transaction_amount']
-BAD_KEYS = ['psc_codes'] # don't have these in ES
+BAD_KEYS = ['psc_codes','keyword'] # don't have these in ES
 
 
 AWARD_QUERY_TO_ES.update({v: k for k, v in AWARD_QUERY_TO_ES.items()})
 
 
-def swap_keys(dictionary_):
+def swap_keys2(dictionary_):
     return dict((AWARD_QUERY_TO_ES.get(old_key, old_key), new_key)
                 for (old_key, new_key) in dictionary_.items())
 
@@ -266,11 +278,12 @@ def range_query(filters, column):
         start = {'range': {column: {'gte': min(f.values())}}}
         end = {'range': {column: {'lte': max(f.values())}}}
         if len(filter_) == 1:
-            queries.extend([start, end])
-            return queries
+            print('range 1')
+            # queries.extend([start, end])
+            return {'bool': {'must': [start, end]}}
         else:
             queries.append((start, end))
-    return [format_dismax(queries, format_=False)]
+    return format_dismax(queries, format_=False)
 
 
 def location_helpers_es(filters, type_='place_of_performance_locations',
@@ -364,6 +377,7 @@ def preprocess(filters, type_='agencies'):
     '''reformats agency filter to be a
     list like all of the others
     '''
+    print('called latest preprocess')
     if filters.get(type_, None):
         filter_ = filters.pop(type_)
         response = defaultdict(list)
@@ -374,10 +388,12 @@ def preprocess(filters, type_='agencies'):
         filters.update(dict(response))
     for f in BAD_KEYS:
         filters.pop(f, None)
-    return swap_keys(filters)
+    return swap_keys2(filters)
 
 
 def time_aggs(group, aggregation_field='transaction_amount'):
+    if group.startswith('fiscal'):
+        group = 'year'
     time_period = dict(date_histogram=dict(field='action_date',
                                            interval=group))
     time_period['aggs'] = dict(aggregated_amount=dict(sum=dict(field=aggregation_field)))
@@ -385,6 +401,7 @@ def time_aggs(group, aggregation_field='transaction_amount'):
 
 
 def geography_aggs(filters, aggregation_field='transaction_amount'):
+    
     scope = filters['scope']
     layer = filters['geo_layer']
     if scope.startswith('place_of_performance'):
@@ -415,12 +432,9 @@ def master_filter_function(filters):
                 }
             }
     '''
-
     filters = preprocess(filters)
-
     es_filter_query, filters = format_filters_query(filters)
     es_must_query = match_query(filters)
-
     filters_portion = dict(bool=dict(filter=es_filter_query,
                                      must=es_must_query))
     return filters_portion
@@ -434,9 +448,18 @@ def spending_over_time(request_data):
     filters_portion = master_filter_function(request_data['filters'])
     group = request_data['group']
     aggs_portion = time_aggs(group)
+    print('got aggs')
 
     query = dict(query=filters_portion, aggs=aggs_portion)
-    response = CLIENT.search(AWARDS_INDEX, body=json.dumps(query))
+    # pprint(query)
+    try:
+        response = CLIENT.search(AWARDS_INDEX, body=query)
+    except Exception as e:
+        print(str(e))
+    print('\n\n')
+    print('TOTAL RESPONSES >>>')
+    print(response['hits']['total'])
+
     return format_time_frontend(response, group)
 
 
@@ -449,6 +472,8 @@ def format_time_frontend(response, group, divisor=1):
     if group == 'quarter':
         divisor = 3
     for d in data:
+        print(d)
+        # {'key_as_string': '2017-10-01', 'key': 1506816000000, 'doc_count': 641, 'aggregated_amount': {'value': 30667969283.049995}})
         total_amount = d['aggregated_amount']['value']
         date = datetime.datetime.fromtimestamp(d['key'] / 1e3)
         group_value = int(math.ceil(date.month//divisor))
@@ -457,6 +482,7 @@ def format_time_frontend(response, group, divisor=1):
         data = dict(aggregated_amount=total_amount,
                     time_period=response_data)
         results.append(data)
+    # pprint(results)
     return results
 
 
@@ -467,9 +493,16 @@ def spending_by_geography(request_data):
     '''
     filters_portion = master_filter_function(request_data['filters'])
     aggs_portion = geography_aggs(request_data)
-
+    print('got aggs geography')
     query = dict(query=filters_portion, aggs=aggs_portion)
-    response = CLIENT.search(AWARDS_INDEX, body=json.dumps(query))
+    # pprint(query)
+    try:
+        response = CLIENT.search(AWARDS_INDEX, body=json.dumps(query))
+    except Exception as e:
+        print(str(e))
+    print('\n\n')
+    print('TOTAL RESPONSES >>>')
+    print(response['hits']['total'])
     return geography_frontend_response(response)
 
 
@@ -485,3 +518,50 @@ def geography_frontend_response(response):
                     display_name=key)
         results.append(data)
     return results
+
+
+def search_transactions2(request_data, lower_limit, limit):
+    '''
+    filters: dictionary
+    fields: list
+    sort: string
+    order: string
+    lower_limit: integer
+    limit: integer
+
+    if transaction_type_code not found, return results for contracts
+    '''
+    # keyword = request_data['keyword']
+    print('got search transactions2')
+    query_fields = [TRANSACTIONS_LOOKUP[i] for i in request_data['fields']]
+    query_fields.extend(['award_id'])
+    query_sort = TRANSACTIONS_LOOKUP[request_data['sort']]
+
+    filter_query = master_filter_function(request_data.get('filters'))
+    filter_query = dict(query=filter_query)
+    pprint(filter_query)
+    query = {
+        '_source': query_fields,
+        'from': lower_limit,
+        'size': limit,
+        'query': filter_query['query'],
+        'sort': [{
+            query_sort: {
+                'order': request_data['order']}
+        }]
+    }
+
+    try:
+        response = CLIENT.search(AWARDS_INDEX, body=json.dumps(query))
+    except Exception as e:
+        print(str(e))
+    if response:
+        total = response['hits']['total']
+        results = format_for_frontend(response['hits']['hits'])
+        print('\n\n')
+        print('TOTAL RESPONSES >>>')
+        print(total)
+        return True, results, total
+    else:
+        return False, 'There was an error connecting to the ElasticSearch cluster', None
+

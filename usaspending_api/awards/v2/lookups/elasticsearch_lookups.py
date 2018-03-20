@@ -16,7 +16,14 @@ TRANSACTIONS_LOOKUP = {"Recipient Name": "recipient_name",
                        "Mod": "modification_number",
                        "Award ID": "display_award_id",
                        "awarding_agency_id": "awarding_agency_id",
-                       "internal_id": "award_id"}
+                       "internal_id": "award_id",
+                       "Contract Award Type": "type",
+                       "Award Amount": "award_fiscal_year",
+                       "Start Date": "period_of_performance_start_date",
+                       "End Date": "period_of_performance_current_end_date"}
+
+
+# ['Award ID', 'Recipient Name', , 'End Date', 'Award Amount', 'Awarding Agency', 'Awarding Sub Agency', 'Contract Award Type']
 
 award_type_mapping = {
     '02': 'Grants',

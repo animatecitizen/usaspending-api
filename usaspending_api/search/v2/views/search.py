@@ -43,6 +43,10 @@ from usaspending_api.search.v2.elasticsearch_helper import spending_by_transacti
 from usaspending_api.search.v2.elasticsearch_helper import spending_by_transaction_sum_and_count
 
 
+from usaspending_api.search.v2.elasticsearch_helper import search_transactions2, spending_over_time
+from usaspending_api.search.v2.elasticsearch_helper import spending_by_geography
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -66,83 +70,9 @@ class SpendingOverTimeVisualizationViewSet(APIView):
         if group not in potential_groups:
             raise InvalidParameterException('group does not have a valid value')
 
-        queryset = spending_over_time(filters)
-        filter_types = filters['award_type_codes'] if 'award_type_codes' in filters else award_type_mapping
-
-        # define what values are needed in the sql query
-        queryset = queryset.values('action_date', 'federal_action_obligation', 'original_loan_subsidy_cost')
-
-        # build response
-        response = {'group': group, 'results': []}
-        nested_order = ''
-
-        group_results = OrderedDict()  # list of time_period objects ie {"fy": "2017", "quarter": "3"} : 1000
-
-        if group == 'fy' or group == 'fiscal_year':
-
-            fy_set = sum_transaction_amount(queryset.values('fiscal_year'), filter_types=filter_types)
-
-            for trans in fy_set:
-                key = {'fiscal_year': str(trans['fiscal_year'])}
-                key = str(key)
-                group_results[key] = trans['transaction_amount']
-
-        elif group == 'm' or group == 'month':
-
-            month_set = queryset.annotate(month=ExtractMonth('action_date')) \
-                .values('fiscal_year', 'month')
-            month_set = sum_transaction_amount(month_set, filter_types=filter_types)
-
-            for trans in month_set:
-                # Convert month to fiscal month
-                fiscal_month = generate_fiscal_month(date(year=2017, day=1, month=trans['month']))
-
-                key = {'fiscal_year': str(trans['fiscal_year']), 'month': str(fiscal_month)}
-                key = str(key)
-                group_results[key] = trans['transaction_amount']
-            nested_order = 'month'
-        else:  # quarterly, take months and add them up
-
-            month_set = queryset.annotate(month=ExtractMonth('action_date')) \
-                .values('fiscal_year', 'month')
-            month_set = sum_transaction_amount(month_set, filter_types=filter_types)
-
-            for trans in month_set:
-                # Convert month to quarter
-                quarter = FiscalDate(2017, trans['month'], 1).quarter
-
-                key = {'fiscal_year': str(trans['fiscal_year']), 'quarter': str(quarter)}
-                key = str(key)
-
-                # If key exists {fy : quarter}, aggregate
-                if group_results.get(key) is None:
-                    group_results[key] = trans['transaction_amount']
-                else:
-                    if trans['transaction_amount']:
-                        group_results[key] = group_results.get(key) + trans['transaction_amount']
-                    else:
-                        group_results[key] = group_results.get(key)
-            nested_order = 'quarter'
-
-        # convert result into expected format, sort by key to meet front-end specs
-        results = []
-        # Expected results structure
-        # [{
-        # 'time_period': {'fy': '2017', 'quarter': '3'},
-        # 	'aggregated_amount': '200000000'
-        # }]
-        sorted_group_results = sorted(
-            group_results.items(),
-            key=lambda k: (
-                ast.literal_eval(k[0])['fiscal_year'],
-                int(ast.literal_eval(k[0])[nested_order])) if nested_order else (ast.literal_eval(k[0])['fiscal_year']))
-
-        for key, value in sorted_group_results:
-            key_dict = ast.literal_eval(key)
-            result = {'time_period': key_dict, 'aggregated_amount': float(value) if value else float(0)}
-            results.append(result)
-        response['results'] = results
-
+        results = spending_over_time(request.data)
+        print('got results')
+        response = dict(results=results)
         return Response(response)
 
 
@@ -177,231 +107,10 @@ class SpendingByCategoryVisualizationViewSet(APIView):
         if filters is None:
             raise InvalidParameterException("Missing one or more required request parameters: filters")
 
-        # filter queryset
-        queryset = matview_search_filter(filters, UniversalTransactionView)
 
-        filter_types = filters['award_type_codes'] if 'award_type_codes' in filters else award_type_mapping
-
-        # filter the transactions by category
-        if category == "awarding_agency":
-            potential_scopes = ["agency", "subagency"]
-            if scope not in potential_scopes:
-                raise InvalidParameterException("scope does not have a valid value")
-
-            if scope == "agency":
-                queryset = queryset \
-                    .filter(awarding_toptier_agency_name__isnull=False) \
-                    .values(
-                        agency_name=F('awarding_toptier_agency_name'),
-                        agency_abbreviation=F('awarding_toptier_agency_abbreviation'))
-
-            elif scope == "subagency":
-                queryset = queryset \
-                    .filter(
-                        awarding_subtier_agency_name__isnull=False) \
-                    .values(
-                        agency_name=F('awarding_subtier_agency_name'),
-                        agency_abbreviation=F('awarding_subtier_agency_abbreviation'))
-
-            elif scope == "office":
-                    # NOT IMPLEMENTED IN UI
-                    raise NotImplementedError
-
-            queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types)\
-                .order_by('-aggregated_amount')
-            results = list(queryset[lower_limit:upper_limit + 1])
-
-            page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-            results = results[:limit]
-
-            response = {"category": category, "scope": scope, "limit": limit, "results": results,
-                        "page_metadata": page_metadata}
-            return Response(response)
-
-        elif category == "funding_agency":
-            potential_scopes = ["agency", "subagency"]
-            if scope not in potential_scopes:
-                raise InvalidParameterException("scope does not have a valid value")
-
-            if scope == "agency":
-                queryset = queryset \
-                    .filter(funding_toptier_agency_name__isnull=False) \
-                    .values(
-                        agency_name=F('funding_toptier_agency_name'),
-                        agency_abbreviation=F('funding_toptier_agency_abbreviation'))
-
-            elif scope == "subagency":
-                queryset = queryset \
-                    .filter(
-                        funding_subtier_agency_name__isnull=False) \
-                    .values(
-                        agency_name=F('funding_subtier_agency_name'),
-                        agency_abbreviation=F('funding_subtier_agency_abbreviation'))
-
-            elif scope == "office":
-                # NOT IMPLEMENTED IN UI
-                raise NotImplementedError
-
-            queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                .order_by('-aggregated_amount')
-            results = list(queryset[lower_limit:upper_limit + 1])
-
-            page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-            results = results[:limit]
-
-            response = {"category": category, "scope": scope, "limit": limit, "results": results,
-                        "page_metadata": page_metadata}
-            return Response(response)
-
-        elif category == "recipient":
-            if scope == "duns":
-                queryset = queryset \
-                    .values(legal_entity_id=F("recipient_id"))
-                queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                    .order_by('-aggregated_amount') \
-                    .values("aggregated_amount", "legal_entity_id", "recipient_name") \
-                    .order_by("-aggregated_amount")
-
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-
-            elif scope == "parent_duns":
-                queryset = queryset \
-                    .filter(parent_recipient_unique_id__isnull=False)
-                queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types,
-                                                  calculate_totals=False) \
-                    .values(
-                        'aggregated_amount',
-                        'recipient_name',
-                        'parent_recipient_unique_id') \
-                    .order_by('-aggregated_amount')
-
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-
-            else:  # recipient_type
-                raise InvalidParameterException("recipient type is not yet implemented")
-
-            response = {"category": category, "scope": scope, "limit": limit, "results": results,
-                        "page_metadata": page_metadata}
-            return Response(response)
-
-        elif category == "cfda_programs":
-            if can_use_view(filters, 'SummaryCfdaNumbersView'):
-                queryset = get_view_queryset(filters, 'SummaryCfdaNumbersView')
-                queryset = queryset \
-                    .filter(
-                        federal_action_obligation__isnull=False,
-                        cfda_number__isnull=False) \
-                    .values(cfda_program_number=F("cfda_number"))
-                queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                    .values(
-                        "aggregated_amount",
-                        "cfda_program_number",
-                        program_title=F("cfda_title")) \
-                    .order_by('-aggregated_amount')
-
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-                for trans in results:
-                    trans['popular_name'] = None
-                    # small DB hit every loop here
-                    cfda = Cfda.objects \
-                        .filter(
-                            program_title=trans['program_title'],
-                            program_number=trans['cfda_program_number']) \
-                        .values('popular_name').first()
-
-                    if cfda:
-                        trans['popular_name'] = cfda['popular_name']
-
-            else:
-                queryset = queryset \
-                    .filter(
-                        cfda_number__isnull=False) \
-                    .values(cfda_program_number=F("cfda_number"))
-                queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                    .values(
-                        "aggregated_amount",
-                        "cfda_program_number",
-                        popular_name=F("cfda_popular_name"),
-                        program_title=F("cfda_title")) \
-                    .order_by('-aggregated_amount')
-
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-
-            response = {"category": category, "limit": limit, "results": results, "page_metadata": page_metadata}
-            return Response(response)
-
-        elif category == "industry_codes":  # industry_codes
-            if scope == "psc":
-                if can_use_view(filters, 'SummaryPscCodesView'):
-                    queryset = get_view_queryset(filters, 'SummaryPscCodesView')
-                    queryset = queryset \
-                        .filter(product_or_service_code__isnull=False) \
-                        .values(psc_code=F("product_or_service_code"))
-                else:
-                    queryset = queryset \
-                        .filter(psc_code__isnull=False) \
-                        .values("psc_code")
-
-                queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                    .order_by('-aggregated_amount')
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-
-                response = {"category": category, "scope": scope, "limit": limit, "results": results,
-                            "page_metadata": page_metadata}
-                return Response(response)
-
-            elif scope == "naics":
-                if can_use_view(filters, 'SummaryNaicsCodesView'):
-                    queryset = get_view_queryset(filters, 'SummaryNaicsCodesView')
-                    queryset = queryset \
-                        .filter(naics_code__isnull=False) \
-                        .values('naics_code')
-                    queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                        .order_by('-aggregated_amount') \
-                        .values(
-                            'naics_code',
-                            'aggregated_amount',
-                            'naics_description')
-                else:
-                    queryset = queryset \
-                        .filter(naics_code__isnull=False) \
-                        .values("naics_code")
-                    queryset = sum_transaction_amount(queryset, 'aggregated_amount', filter_types=filter_types) \
-                        .order_by('-aggregated_amount') \
-                        .values(
-                            'naics_code',
-                            'aggregated_amount',
-                            'naics_description')
-
-                # Begin DB hits here
-                results = list(queryset[lower_limit:upper_limit + 1])
-
-                page_metadata = get_simple_pagination_metadata(len(results), limit, page)
-                results = results[:limit]
-
-                response = {"category": category, "scope": scope, "limit": limit, "results": results,
-                            "page_metadata": page_metadata}
-                return Response(response)
-
-            else:  # recipient_type
-                raise InvalidParameterException("recipient type is not yet implemented")
+        response = {"category": category, "scope": scope, "limit": limit, "results": results,
+                    "page_metadata": page_metadata}
+        return Response(response)
 
 
 class SpendingByGeographyVisualizationViewSet(APIView):
@@ -416,6 +125,7 @@ class SpendingByGeographyVisualizationViewSet(APIView):
 
     @cache_response()
     def post(self, request):
+        print('called spending by heography')
         json_request = request.data
         self.scope = json_request.get("scope")
         self.filters = json_request.get("filters", {})
@@ -626,85 +336,45 @@ class SpendingByAwardVisualizationViewSet(APIView):
         lower_limit = (page - 1) * limit
         upper_limit = page * limit
 
-        # input validation
-        if fields is None:
-            raise InvalidParameterException("Missing one or more required request parameters: fields")
-        elif len(fields) == 0:
-            raise InvalidParameterException("Please provide a field in the fields request parameter.")
-        if filters is None:
-            raise InvalidParameterException("Missing one or more required request parameters: filters")
-        if "award_type_codes" not in filters:
-            raise InvalidParameterException(
-                "Missing one or more required request parameters: filters['award_type_codes']")
-        if order not in ["asc", "desc"]:
-            raise InvalidParameterException("Invalid value for order: {}".format(order))
+        # results = []
+        # for award in limited_queryset[:limit]:
+        #     row = {"internal_id": award["award_id"]}
 
-        sort = json_request.get("sort", fields[0])
-        if sort not in fields:
-            raise InvalidParameterException("Sort value not found in fields: {}".format(sort))
+        #     if award['type'] in loan_type_mapping:  # loans
+        #         for field in fields:
+        #             row[field] = award.get(loan_award_mapping.get(field))
+        #     elif award['type'] in non_loan_assistance_type_mapping:  # assistance data
+        #         for field in fields:
+        #             row[field] = award.get(non_loan_assistance_award_mapping.get(field))
+        #     elif (award['type'] is None and award['piid']) or award['type'] in contract_type_mapping:  # IDV + contract
+        #         for field in fields:
+        #             row[field] = award.get(award_contracts_mapping.get(field))
 
-        # build sql query filters
-        queryset = matview_search_filter(filters, UniversalAwardView).values()
-
-        values = {'award_id', 'piid', 'fain', 'uri', 'type'}  # always get at least these columns
-        for field in fields:
-            if award_contracts_mapping.get(field):
-                values.add(award_contracts_mapping.get(field))
-            if loan_award_mapping.get(field):
-                values.add(loan_award_mapping.get(field))
-            if non_loan_assistance_award_mapping.get(field):
-                values.add(non_loan_assistance_award_mapping.get(field))
-
-        # Modify queryset to be ordered if we specify "sort" in the request
-        if sort and "no intersection" not in filters["award_type_codes"]:
-            if set(filters["award_type_codes"]) <= set(contract_type_mapping):
-                sort_filters = [award_contracts_mapping[sort]]
-            elif set(filters["award_type_codes"]) <= set(loan_type_mapping):  # loans
-                sort_filters = [loan_award_mapping[sort]]
-            else:  # assistance data
-                sort_filters = [non_loan_assistance_award_mapping[sort]]
-
-            if sort == "Award ID":
-                sort_filters = ["piid", "fain", "uri"]
-            if order == 'desc':
-                sort_filters = ['-' + sort_filter for sort_filter in sort_filters]
-
-            queryset = queryset.order_by(*sort_filters).values(*list(values))
-
-        limited_queryset = queryset[lower_limit:upper_limit + 1]
-        has_next = len(limited_queryset) > limit
-
-        results = []
-        for award in limited_queryset[:limit]:
-            row = {"internal_id": award["award_id"]}
-
-            if award['type'] in loan_type_mapping:  # loans
-                for field in fields:
-                    row[field] = award.get(loan_award_mapping.get(field))
-            elif award['type'] in non_loan_assistance_type_mapping:  # assistance data
-                for field in fields:
-                    row[field] = award.get(non_loan_assistance_award_mapping.get(field))
-            elif (award['type'] is None and award['piid']) or award['type'] in contract_type_mapping:  # IDV + contract
-                for field in fields:
-                    row[field] = award.get(award_contracts_mapping.get(field))
-
-            if "Award ID" in fields:
-                for id_type in ["piid", "fain", "uri"]:
-                    if award[id_type]:
-                        row["Award ID"] = award[id_type]
-                        break
-            results.append(row)
+        #     if "Award ID" in fields:
+        #         for id_type in ["piid", "fain", "uri"]:
+        #             if award[id_type]:
+        #                 row["Award ID"] = award[id_type]
+        #                 break
+        #     results.append(row)
         # build response
-        response = {
-            'limit': limit,
-            'results': results,
-            'page_metadata': {
-                'page': page,
-                'hasNext': has_next
-            }
-        }
 
+        request_data = request.data
+        success, response, total = search_transactions2(request_data, lower_limit, limit)
+
+        if not success:
+            raise InvalidParameterException(response)
+        print('got response')
+        results = []
+        for transaction in response:
+            results.append(transaction)
+
+        response = {
+            'limit': 60,
+            'results': results,
+            'page_metadata': 'boom'
+        }
         return Response(response)
+
 
 
 class SpendingByAwardCountVisualizationViewSet(APIView):

@@ -4,9 +4,9 @@ from usaspending_api.search.v2.views.search import SpendingByAwardVisualizationV
 # from usaspending_api.search.v2.views.search import SpendingByCategoryVisualizationViewSet
 from usaspending_api.search.v2.views.search import SpendingByGeographyVisualizationViewSet
 from usaspending_api.search.v2.views.search import SpendingOverTimeVisualizationViewSet
-from usaspending_api.search.v2.views.search import TransactionSummaryVisualizationViewSet
-from usaspending_api.search.v2.views.search import SpendingByTransactionVisualizationViewSet
-from usaspending_api.search.v2.views.search import SpendingByTransactionCountVisualizaitonViewSet
+from usaspending_api.search.v2.views.elastic_search import TransactionSummaryVisualizationViewSet
+from usaspending_api.search.v2.views.elastic_search import SpendingByTransactionVisualizationViewSet
+from usaspending_api.search.v2.views.elastic_search import SpendingByTransactionCountVisualizaitonViewSet
 
 urlpatterns = [
     url(r'^spending_over_time', SpendingOverTimeVisualizationViewSet.as_view()),

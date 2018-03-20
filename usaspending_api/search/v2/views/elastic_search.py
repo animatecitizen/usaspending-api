@@ -38,7 +38,7 @@ from usaspending_api.core.validator.pagination import PAGINATION
 from usaspending_api.core.validator.tinyshield import TinyShield
 from usaspending_api.references.abbreviations import code_to_state, fips_to_code, pad_codes
 from usaspending_api.references.models import Cfda
-from usaspending_api.search.v2.elasticsearch_helper import search_transactions
+from usaspending_api.search.v2.elasticsearch_helper import search_transactions2
 from usaspending_api.search.v2.elasticsearch_helper import spending_by_transaction_count
 from usaspending_api.search.v2.elasticsearch_helper import spending_by_transaction_sum_and_count
 
@@ -59,35 +59,40 @@ class SpendingByTransactionVisualizationViewSet(APIView):
 
     @cache_response()
     def post(self, request):
+        print('called post')
 
-        models = [
-            {'name': 'fields', 'key': 'fields', 'type': 'array', 'array_type': 'text', 'text_type': 'search'},
-        ]
-        models.extend(AWARD_FILTER)
-        models.extend(PAGINATION)
-        for m in models:
-            if m['name'] in ('keyword', 'award_type_codes', 'sort'):
-                m['optional'] = False
-        validated_payload = TinyShield(models).block(request.data)
+        # models = [
+        #     {'name': 'fields', 'key': 'fields', 'type': 'array', 'array_type': 'text', 'text_type': 'search'},
+        # ]
+        # models.extend(AWARD_FILTER)
+        # models.extend(PAGINATION)
+        # for m in models:
+        #     if m['name'] in ('keyword', 'award_type_codes', 'sort'):
+        #         m['optional'] = False
+        # validated_payload = TinyShield(models).block(request.data)
 
-        if validated_payload['sort'] not in validated_payload['fields']:
-            raise InvalidParameterException("Sort value not found in fields: {}".format(validated_payload['sort']))
+        # if validated_payload['sort'] not in validated_payload['fields']:
+        #     raise InvalidParameterException("Sort value not found in fields: {}".format(validated_payload['sort']))
+        
+        # lower_limit = (validated_payload['page'] - 1) * validated_payload['limit']
 
-        lower_limit = (validated_payload['page'] - 1) * validated_payload['limit']
-        success, response, total = search_transactions(validated_payload, lower_limit, validated_payload['limit'] + 1)
+
+        request_data = request.data
+        # print(request_data)
+        # success, response, total = search_transactions2(request_data, lower_limit, validated_payload['limit'] + 1)
+        success, response, total = search_transactions2(request_data, 0, 60)
+
         if not success:
             raise InvalidParameterException(response)
 
-        metadata = get_simple_pagination_metadata(len(response), validated_payload['limit'], validated_payload['page'])
-
         results = []
-        for transaction in response[:validated_payload['limit']]:
+        for transaction in response:
             results.append(transaction)
 
         response = {
-            'limit': validated_payload['limit'],
+            'limit': 60,
             'results': results,
-            'page_metadata': metadata
+            'page_metadata': 'boom'
         }
         return Response(response)
 
