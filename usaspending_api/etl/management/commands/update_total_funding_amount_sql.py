@@ -19,11 +19,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
 
         with connection.cursor() as curs:
-            start = datetime.now()
-            logger.info('Running updates on transaction_normalized')
-            curs.execute(self.TRANSACTION_NORMALIZED_TFA)
-            logger.info('Finished updates on transaction_normalized in %s seconds (%s rows updated)' %
-                        (str(datetime.now() - start), curs.rowcount))
+            # start = datetime.now()
+            # logger.info('Running updates on transaction_normalized')
+            # curs.execute(self.TRANSACTION_NORMALIZED_TFA)
+            # logger.info('Finished updates on transaction_normalized in %s seconds (%s rows updated)' %
+            #             (str(datetime.now() - start), curs.rowcount))
 
             start = datetime.now()
             logger.info('Running updates on awards')
