@@ -1,6 +1,7 @@
 import itertools
 import logging
 
+from datetime import datetime, timedelta
 from django.db.models import Q
 
 from usaspending_api.awards.models import Subaward, LegalEntity
@@ -128,23 +129,53 @@ def subaward_filter(filters):
         elif key == "time_period":
             or_queryset = None
             queryset_init = False
+            action_list = []
+            last_mod_list = []
             for v in value:
                 date_type = v.get("date_type", "action_date")
-                if date_type not in ["action_date", "last_modified_date"]:
-                    raise InvalidParameterException('Invalid date_type: {}'.format(date_type))
                 date_field = (date_type if date_type == 'action_date'
                               else 'award__latest_transaction__{}'.format(date_type))
-                kwargs = {}
-                if v.get("start_date") is not None:
-                    kwargs["{}__gte".format(date_field)] = v.get("start_date")
-                if v.get("end_date") is not None:
-                    kwargs["{}__lte".format(date_field)] = v.get("end_date")
-                # (may have to cast to date) (oct 1 to sept 30)
-                if queryset_init:
-                    or_queryset |= Subaward.objects.filter(**kwargs)
+                start_date = datetime.strptime(v.get("start_date"), '%Y-%m-%d').date() if v.get("start_date") else None
+                end_date = datetime.strptime(v.get("end_date"), '%Y-%m-%d').date() if v.get("end_date") else None
+                if date_type == 'action_date':
+                    action_list.append({'start': start_date, 'end': end_date, 'date_field': date_field})
+                elif date_type == 'last_modified_date':
+                    last_mod_list.append({'start': start_date, 'end': end_date, 'date_field': date_field})
                 else:
-                    queryset_init = True
-                    or_queryset = Subaward.objects.filter(**kwargs)
+                    raise InvalidParameterException('Invalid date_type: {}'.format(date_type))
+            for dates_list in (action_list, last_mod_list):
+                dates_list = sorted(dates_list, key=lambda date: (date['start'], date['end']))
+                i = 1
+                while i < len(dates_list):
+                    if dates_list[i - 1]['start'] is not None and dates_list[i - 1]['end'] is None and \
+                            dates_list[i - 1]['start'] >= dates_list[i]['start']:
+                        # >= of the current date range encompasses the next date range
+                        del dates_list[i]
+                    elif dates_list[i - 1]['start'] is not None and dates_list[i - 1]['end'] is not None and \
+                            (dates_list[i - 1]['end'] + timedelta(days=1)) >= dates_list[i]['start']:
+                        # The current date range encompasses the next date range
+                        dates_list[i - 1]['end'] = dates_list[i]['end']
+                        del dates_list[i]
+                    elif dates_list[i]['start'] is None and dates_list[i]['end'] is not None and \
+                            (dates_list[i]['end']) >= dates_list[i + 1]['end']:
+                        # <= of the next date range encompasses the current date range
+                        del dates_list[i]
+                        i = i - 1
+                    else:
+                        # No overlaps, continue
+                        i = i + 1
+                for dates in dates_list:
+                    kwargs = {}
+                    if dates.get("start") is not None:
+                        kwargs["{}__gte".format(dates.get('date_field'))] = dates.get("start")
+                    if dates.get("end") is not None:
+                        kwargs["{}__lte".format(dates.get('date_field'))] = dates.get("end")
+
+                    if queryset_init:
+                        or_queryset |= Subaward.objects.filter(**kwargs)
+                    else:
+                        queryset_init = True
+                        or_queryset = Subaward.objects.filter(**kwargs)
             if queryset_init:
                 queryset &= or_queryset
 
