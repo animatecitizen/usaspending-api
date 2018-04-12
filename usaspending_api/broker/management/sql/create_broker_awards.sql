@@ -1,4 +1,4 @@
-DROP FUNCTION aggregate_fpds(text, text, text, text);
+DROP FUNCTION IF EXISTS aggregate_fpds(text, text, text, text);
 
 CREATE FUNCTION aggregate_fpds(agency_id_in text, referenced_idv_agency_iden_in text, piid_in text, parent_award_id_in text)
 RETURNS RECORD AS $$
@@ -33,7 +33,7 @@ BEGIN
 END;
 $$  LANGUAGE plpgsql;
 
-DROP FUNCTION aggregate_fabs(text, text, text);
+DROP FUNCTION IF EXISTS aggregate_fabs(text, text, text);
 
 CREATE OR REPLACE FUNCTION aggregate_fabs(awarding_subtier_agency_code_in text, fain_in text, uri_in text)
 RETURNS RECORD AS $$
