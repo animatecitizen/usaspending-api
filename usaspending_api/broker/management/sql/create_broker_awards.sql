@@ -1,45 +1,55 @@
 DROP FUNCTION IF EXISTS aggregate_fpds(text, text, text, text);
 
 CREATE FUNCTION aggregate_fpds(agency_id_in text, referenced_idv_agency_iden_in text, piid_in text, parent_award_id_in text)
-RETURNS RECORD AS $$
-DECLARE
-    result RECORD;
-BEGIN
-    SELECT
-        agency_id_in AS agency_id,
-        referenced_idv_agency_iden_in AS referenced_idv_agency_iden,
-        piid_in AS piid,
-        parent_award_id_in AS parent_award_id,
-        SUM(COALESCE(federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
-        SUM(COALESCE(base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS base_and_all_options_value,
-        MIN(NULLIF(action_date, '')::DATE) AS date_signed,
-        MAX(NULLIF(action_date, '')::DATE) AS certified_date,
-        MIN(NULLIF(period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
-        MAX(NULLIF(period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
-    FROM
-        detached_award_procurement AS dap
-    WHERE 
-        (dap.piid = piid_in OR (piid_in IS NULL AND dap.piid IS NULL))
+RETURNS TABLE(agency_id text,
+			  referenced_idv_agency_iden text,
+			  piid text,
+			  parent_award_id text,
+			  total_obligation numeric,
+			  base_and_all_options_value numeric,
+			  date_signed date,
+			  certified_date date,
+			  period_of_performance_start_date date,
+			  period_of_performance_current_end_date date) AS $$
+ BEGIN
+	return query 
+	SELECT 
+	    agency_id_in AS agency_id, 
+	    referenced_idv_agency_iden_in AS referenced_idv_agency_iden, 
+	    piid_in AS piid, 		parent_award_id_in AS parent_award_id, 
+	    SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation, 
+	    SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS base_and_all_options_value, 
+	    MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed, 
+	    MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date, 
+	    MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date, 
+	    MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date 
+    FROM  detached_award_procurement AS dap 
+    WHERE  (dap.piid = piid_in OR (piid_in IS NULL AND dap.piid IS NULL)) 
         AND
-        (dap.parent_award_id = parent_award_id_in OR (parent_award_id_in IS NULL AND dap.parent_award_id IS NULL))
-        AND
+        (dap.parent_award_id = parent_award_id_in OR (parent_award_id_in IS NULL AND dap.parent_award_id IS NULL)) 
+        AND 
         (dap.agency_id = agency_id_in OR (agency_id_in IS NULL AND dap.agency_id IS NULL)) 
         AND 
-        (dap.referenced_idv_agency_iden = referenced_idv_agency_iden_in OR (referenced_idv_agency_iden_in IS NULL AND dap.referenced_idv_agency_iden IS NULL))
-    INTO
-   		result;
-
-    return result;
+        (dap.referenced_idv_agency_iden = referenced_idv_agency_iden_in OR (referenced_idv_agency_iden_in IS NULL AND dap.referenced_idv_agency_iden IS NULL));  
 END;
 $$  LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS aggregate_fabs(text, text, text);
 
 CREATE OR REPLACE FUNCTION aggregate_fabs(awarding_subtier_agency_code_in text, fain_in text, uri_in text)
-RETURNS RECORD AS $$
-DECLARE
-    result RECORD;
+RETURNS TABLE(awarding_sub_tier_agency_c text,
+			  fain text,
+			  uri text,
+			  total_obligation numeric,
+			  total_subsidy_cost numeric,
+			  total_loan_value numeric,
+			  total_funding_amount numeric,
+			  date_signed date,
+			  certified_date date,
+			  period_of_performance_start_date date,
+			  period_of_performance_current_end_date date) AS $$
 BEGIN
+    return query
     SELECT
         awarding_subtier_agency_code_in AS awarding_sub_tier_agency_c,
         fain_in AS fain,
@@ -59,11 +69,7 @@ BEGIN
         AND
         (faba.fain = fain_in OR (fain_in IS NULL AND faba.fain IS NULL))
         AND
-        (faba.uri = uri_in OR (uri_in IS NULL AND faba.uri IS NULL)) 
-    INTO
-   		result;
-
-    return result;
+        (faba.uri = uri_in OR (uri_in IS NULL AND faba.uri IS NULL)) ;
 END;
 $$  LANGUAGE plpgsql;
 --
