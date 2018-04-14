@@ -285,6 +285,25 @@ CREATE TABLE awards_new (
 --       ) u
 --    )
 
+WITH fpds_cte AS (
+    SELECT
+        agency_id,
+        referenced_idv_agency_iden,
+        piid,
+        parent_award_id,
+        SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
+        SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS "base_and_all_options_value",
+        MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed,
+        MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date,
+        MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
+        MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
+    FROM detached_award_procurement AS dap
+    GROUP BY
+        agency_id,
+        referenced_idv_agency_iden,
+        piid,
+        parent_award_id
+)
 INSERT INTO awards_new
 SELECT
     DISTINCT ON (dap.piid, dap.parent_award_id, dap.agency_id, dap.referenced_idv_agency_iden)
@@ -475,10 +494,16 @@ SELECT
     dap_latest.place_of_performance_congr AS pop_congressional_code
 FROM
     detached_award_procurement AS dap
-    JOIN
-    aggregate_fpds(dap.agency_id, dap.referenced_idv_agency_iden, dap.piid, dap.parent_award_id)
-        AS fpds_agg ON fpds_agg.piid = dap.piid AND fpds_agg.parent_award_id = dap.parent_award_id AND fpds_agg.agency_id = dap.agency_id AND fpds_agg.referenced_idv_agency_iden = dap.referenced_idv_agency_iden
-    JOIN
+JOIN fpds_cte AS fpds_agg ON
+        (dap.piid = fpds_agg.piid OR (fpds_agg.piid IS NULL AND dap.piid IS NULL))
+        AND
+        (dap.parent_award_id = fpds_agg.parent_award_id OR (fpds_agg.parent_award_id IS NULL AND dap.parent_award_id IS NULL))
+        AND
+        (dap.agency_id = fpds_agg.agency_id OR (fpds_agg.agency_id IS NULL AND dap.agency_id IS NULL))
+        AND
+        (dap.referenced_idv_agency_iden = fpds_agg.referenced_idv_agency_iden OR (fpds_agg.referenced_idv_agency_iden IS NULL AND dap.referenced_idv_agency_iden IS NULL))
+
+LEFT JOIN LATERAL
     (SELECT *
      FROM detached_award_procurement AS dap_sub
      WHERE
@@ -494,7 +519,7 @@ FROM
         dap_sub.award_modification_amendme DESC,
         dap_sub.transaction_number DESC
      LIMIT 1
-    ) AS dap_latest ON dap_latest.detached_award_procurement_id = dap.detached_award_procurement_id
+    ) dap_latest ON true
 ;
 --
 --
