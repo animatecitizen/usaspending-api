@@ -747,20 +747,20 @@ LATERAL
 
 LATERAL aggregate_fpds(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri, pafa.record_type)
     AS fabs_agg(awarding_sub_tier_agency_c text,
-    			fain text,
-    			uri text,
-    			total_obligation numeric,
-    			total_subsidy_cost numeric,
-    			total_loan_value numeric,
-    			total_funding_amount numeric,
-    			date_signed date,
-    			certified_date date,
-    			period_of_performance_start_date date,
-    			period_of_performance_current_end_date date)
+                fain text,
+                uri text,
+                total_obligation numeric,
+                total_subsidy_cost numeric,
+                total_loan_value numeric,
+                total_funding_amount numeric,
+                date_signed date,
+                certified_date date,
+                period_of_performance_start_date date,
+                period_of_performance_current_end_date date)
 WHERE
-	pafa.record_type IN ('2', '3')
-	AND
-	is_active IS TRUE;
+    pafa.record_type IN ('2', '3')
+    AND
+    is_active IS TRUE;
 
 
 INSERT INTO awards_new
@@ -1006,17 +1006,17 @@ LATERAL
 
 LATERAL aggregate_fpds(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri)
     AS fabs_agg(awarding_sub_tier_agency_c text,
-    			fain text,
-    			uri text,
-    			total_obligation numeric,
-    			total_subsidy_cost numeric,
-    			total_loan_value numeric,
-    			total_funding_amount numeric,
-    			date_signed date,
-    			certified_date date,
-    			period_of_performance_start_date date,
-    			period_of_performance_current_end_date date)
+                fain text,
+                uri text,
+                total_obligation numeric,
+                total_subsidy_cost numeric,
+                total_loan_value numeric,
+                total_funding_amount numeric,
+                date_signed date,
+                certified_date date,
+                period_of_performance_start_date date,
+                period_of_performance_current_end_date date)
 WHERE
-	pafa.record_type = '1'
-	AND
-	is_active IS TRUE;
+    pafa.record_type = '1'
+    AND
+    is_active IS TRUE;
