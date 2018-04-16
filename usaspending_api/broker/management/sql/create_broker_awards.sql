@@ -66,7 +66,7 @@ BEGIN
         return result;
     END IF;
 
-    IF record_type_in = '2' THEN
+    IF record_type_in IN ('2', '3') THEN
         SELECT
             awarding_subtier_agency_code_in AS awarding_sub_tier_agency_c,
             fain_in AS fain,
@@ -86,7 +86,7 @@ BEGIN
             AND
             (faba.fain = fain_in OR (fain_in IS NULL AND faba.fain IS NULL))
             AND
-            faba.record_type = '2'
+            faba.record_type IN ('2', '3')
         INTO
             result;
         return result;
@@ -738,7 +738,7 @@ LATERAL
         AND
         (pafa.fain = pafa_sub.fain OR (pafa.fain IS NULL AND pafa_sub.fain IS NULL))
         AND
-        pafa_sub.record_type = '2'
+        pafa_sub.record_type IN ('2', '3')
      ORDER BY
         pafa_sub.action_date DESC,
         pafa_sub.award_modification_amendme DESC
@@ -758,7 +758,7 @@ LATERAL aggregate_fpds(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri, paf
     			period_of_performance_start_date date,
     			period_of_performance_current_end_date date)
 WHERE
-	pafa.record_type = '2'
+	pafa.record_type IN ('2', '3')
 	AND
 	is_active IS TRUE;
 
