@@ -94,8 +94,13 @@ BEGIN
 END;
 $$  LANGUAGE plpgsql;
 
+-- FPDS indexes
 CREATE INDEX temp_group_fpds_idx ON detached_award_procurement(piid, parent_award_id, agency_id, referenced_idv_agency_iden);
+CREATE INDEX temp_group_ordered_fpds_idx ON detached_award_procurement(action_date DESC, award_modification_amendme DESC, transaction_number DESC);
+
+-- FABS indexes
 CREATE INDEX temp_group_fabs_idx ON published_award_financial_assistance(awarding_sub_tier_agency_c, fain, uri);
+CREATE INDEX temp_group_ordered_fabs_idx ON published_award_financial_assistance(action_date DESC, award_modification_amendme DESC);
 
 DROP TABLE IF EXISTS awards_new;
 
