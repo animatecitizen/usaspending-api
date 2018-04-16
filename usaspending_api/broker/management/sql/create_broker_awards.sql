@@ -36,19 +36,21 @@ $$  LANGUAGE plpgsql;
 DROP FUNCTION IF EXISTS aggregate_fabs(text, text, text);
 
 CREATE OR REPLACE FUNCTION aggregate_fabs(awarding_subtier_agency_code_in text, fain_in text, uri_in text)
-RETURNS TABLE(awarding_sub_tier_agency_c text,
-              fain text,
-              uri text,
-              total_obligation numeric,
-              total_subsidy_cost numeric,
-              total_loan_value numeric,
-              total_funding_amount numeric,
-              date_signed date,
-              certified_date date,
-              period_of_performance_start_date date,
-              period_of_performance_current_end_date date) AS $$
+RETURNS RECORD AS $$
+DECLARE
+    result RECORD;
+-- RETURNS TABLE(awarding_sub_tier_agency_c text,
+--               fain text,
+--               uri text,
+--               total_obligation numeric,
+--               total_subsidy_cost numeric,
+--               total_loan_value numeric,
+--               total_funding_amount numeric,
+--               date_signed date,
+--               certified_date date,
+--               period_of_performance_start_date date,
+--               period_of_performance_current_end_date date) AS $$
 BEGIN
-    RETURN QUERY
     SELECT
         awarding_subtier_agency_code_in AS awarding_sub_tier_agency_c,
         fain_in AS fain,
@@ -68,7 +70,10 @@ BEGIN
         AND
         (faba.fain = fain_in OR (fain_in IS NULL AND faba.fain IS NULL))
         AND
-        (faba.uri = uri_in OR (uri_in IS NULL AND faba.uri IS NULL));
+        (faba.uri = uri_in OR (uri_in IS NULL AND faba.uri IS NULL))
+    INTO
+        result;
+    return result;
 END;
 $$  LANGUAGE plpgsql;
 --
@@ -260,46 +265,7 @@ CREATE TABLE awards_new (
     -- congressional disctrict
     pop_congressional_code TEXT);
 
--- WITH RECURSIVE cte AS (
---    (
---    SELECT user_id, aggr_date, running_total
---    FROM   user_msg_log
---    WHERE  aggr_date <= :mydate
---    ORDER  BY user_id, aggr_date DESC NULLS LAST
---    LIMIT  1
---    )
---    UNION ALL
---    SELECT u.user_id, u.aggr_date, u.running_total
---    FROM   cte c
---    ,      LATERAL (
---       SELECT user_id, aggr_date, running_total
---       FROM   user_msg_log
---       WHERE  user_id > c.user_id   -- lateral reference
---       AND    aggr_date <= :mydate  -- repeat condition
---       ORDER  BY user_id, aggr_date DESC NULLS LAST
---       LIMIT  1
---       ) u
---    )
 
--- WITH fpds_cte AS (
---     SELECT
---         agency_id,
---         referenced_idv_agency_iden,
---         piid,
---         parent_award_id,
---         SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
---         SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS "base_and_all_options_value",
---         MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed,
---         MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date,
---         MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
---         MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
---     FROM detached_award_procurement AS dap
---     GROUP BY
---         agency_id,
---         referenced_idv_agency_iden,
---         piid,
---         parent_award_id
--- )
 INSERT INTO awards_new
 SELECT
     DISTINCT ON (dap.piid, dap.parent_award_id, dap.agency_id, dap.referenced_idv_agency_iden)
