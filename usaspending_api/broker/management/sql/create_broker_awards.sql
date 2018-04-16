@@ -1,31 +1,23 @@
 DROP FUNCTION IF EXISTS aggregate_fpds(text, text, text, text);
 
 CREATE FUNCTION aggregate_fpds(agency_id_in text, referenced_idv_agency_iden_in text, piid_in text, parent_award_id_in text)
-RETURNS TABLE(
-    agency_id text,
-    referenced_idv_agency_iden text,
-    piid text,
-    parent_award_id text,
-    total_obligation numeric,
-    base_and_all_options_value numeric,
-    date_signed date,
-    certified_date date,
-    period_of_performance_start_date date,
-    period_of_performance_current_end_date date)
-AS $$
+RETURNS RECORD AS $$
+DECLARE
+    result RECORD;
 BEGIN
- RETURN QUERY SELECT
-        agency_id_in AS "agency_id",
-        referenced_idv_agency_iden_in AS "referenced_idv_agency_iden",
-        piid_in AS "piid",
-        parent_award_id_in AS "parent_award_id",
-        SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
-        SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS "base_and_all_options_value",
-        MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed,
-        MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date,
-        MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
-        MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
-    FROM detached_award_procurement AS dap
+    SELECT
+        agency_id_in AS agency_id,
+        referenced_idv_agency_iden_in AS referenced_idv_agency_iden,
+        piid_in AS piid,
+        parent_award_id_in AS parent_award_id,
+        SUM(COALESCE(federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
+        SUM(COALESCE(base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS base_and_all_options_value,
+        MIN(NULLIF(action_date, '')::DATE) AS date_signed,
+        MAX(NULLIF(action_date, '')::DATE) AS certified_date,
+        MIN(NULLIF(period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
+        MAX(NULLIF(period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
+    FROM
+        detached_award_procurement AS dap
     WHERE
         (dap.piid = piid_in OR (piid_in IS NULL AND dap.piid IS NULL))
         AND
@@ -33,9 +25,13 @@ BEGIN
         AND
         (dap.agency_id = agency_id_in OR (agency_id_in IS NULL AND dap.agency_id IS NULL))
         AND
-        (dap.referenced_idv_agency_iden = referenced_idv_agency_iden_in OR (referenced_idv_agency_iden_in IS NULL AND dap.referenced_idv_agency_iden IS NULL));
-END; $$
-LANGUAGE 'plpgsql';
+        (dap.referenced_idv_agency_iden = referenced_idv_agency_iden_in OR (referenced_idv_agency_iden_in IS NULL AND dap.referenced_idv_agency_iden IS NULL))
+    INTO
+        result;
+    return result;
+END;
+$$  LANGUAGE plpgsql;
+
 
 DROP FUNCTION IF EXISTS aggregate_fabs(text, text, text);
 
@@ -285,25 +281,25 @@ CREATE TABLE awards_new (
 --       ) u
 --    )
 
-WITH fpds_cte AS (
-    SELECT
-        agency_id,
-        referenced_idv_agency_iden,
-        piid,
-        parent_award_id,
-        SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
-        SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS "base_and_all_options_value",
-        MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed,
-        MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date,
-        MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
-        MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
-    FROM detached_award_procurement AS dap
-    GROUP BY
-        agency_id,
-        referenced_idv_agency_iden,
-        piid,
-        parent_award_id
-)
+-- WITH fpds_cte AS (
+--     SELECT
+--         agency_id,
+--         referenced_idv_agency_iden,
+--         piid,
+--         parent_award_id,
+--         SUM(COALESCE(dap.federal_action_obligation::NUMERIC, 0::NUMERIC)) AS total_obligation,
+--         SUM(COALESCE(dap.base_and_all_options_value::NUMERIC, 0::NUMERIC)) AS "base_and_all_options_value",
+--         MIN(NULLIF(dap.action_date, '')::DATE) AS date_signed,
+--         MAX(NULLIF(dap.action_date, '')::DATE) AS certified_date,
+--         MIN(NULLIF(dap.period_of_performance_star, '')::DATE) AS period_of_performance_start_date,
+--         MAX(NULLIF(dap.period_of_performance_curr, '')::DATE) AS period_of_performance_current_end_date
+--     FROM detached_award_procurement AS dap
+--     GROUP BY
+--         agency_id,
+--         referenced_idv_agency_iden,
+--         piid,
+--         parent_award_id
+-- )
 INSERT INTO awards_new
 SELECT
     DISTINCT ON (dap.piid, dap.parent_award_id, dap.agency_id, dap.referenced_idv_agency_iden)
@@ -493,34 +489,37 @@ SELECT
     -- congressional disctrict
     dap_latest.place_of_performance_congr AS pop_congressional_code
 FROM
-    detached_award_procurement AS dap
-JOIN fpds_cte AS fpds_agg ON
-        (dap.piid = fpds_agg.piid OR (fpds_agg.piid IS NULL AND dap.piid IS NULL))
-        AND
-        (dap.parent_award_id = fpds_agg.parent_award_id OR (fpds_agg.parent_award_id IS NULL AND dap.parent_award_id IS NULL))
-        AND
-        (dap.agency_id = fpds_agg.agency_id OR (fpds_agg.agency_id IS NULL AND dap.agency_id IS NULL))
-        AND
-        (dap.referenced_idv_agency_iden = fpds_agg.referenced_idv_agency_iden OR (fpds_agg.referenced_idv_agency_iden IS NULL AND dap.referenced_idv_agency_iden IS NULL))
-
-LEFT JOIN LATERAL
+    detached_award_procurement AS dap,
+LATERAL
     (SELECT *
      FROM detached_award_procurement AS dap_sub
      WHERE
-        (dap_sub.piid = dap.piid OR (dap_sub.piid IS NULL AND dap.piid IS NULL))
+        (dap.piid = dap_sub.piid OR (dap.piid IS NULL AND dap_sub.piid IS NULL))
         AND
-        (dap_sub.parent_award_id = dap.parent_award_id OR (dap_sub.parent_award_id IS NULL AND dap.parent_award_id IS NULL))
+        (dap.parent_award_id = dap_sub.parent_award_id OR (dap.parent_award_id IS NULL AND dap_sub.parent_award_id IS NULL))
         AND
-        (dap_sub.agency_id = dab.agency_id OR (dap_sub.agency_id IS NULL AND dap.agency_id IS NULL))
+        (dap.agency_id = dap_sub.agency_id OR (dap.agency_id IS NULL AND dap_sub.agency_id IS NULL))
         AND
-        (dap_sub.referenced_idv_agency_iden = dap.referenced_idv_agency_iden OR (dap_sub.referenced_idv_agency_iden IS NULL AND dap_sub.action_date))
+        (dap.referenced_idv_agency_iden = dap_sub.referenced_idv_agency_iden OR (dap.referenced_idv_agency_iden IS NULL AND dap_sub.referenced_idv_agency_iden IS NULL))
      ORDER BY
         dap_sub.action_date DESC,
         dap_sub.award_modification_amendme DESC,
         dap_sub.transaction_number DESC
      LIMIT 1
-    ) dap_latest ON true
-;
+    ) as dap_latest,
+
+LATERAL aggregate_fpds(dap.agency_id, dap.referenced_idv_agency_iden, dap.piid, dap.parent_award_id)
+    AS fpds_agg(
+            agency_id TEXT,
+            referenced_idv_agency_iden TEXT,
+            piid TEXT,
+            parent_award_id TEXT,
+            total_obligation NUMERIC,
+            base_and_all_options_value NUMERIC,
+            date_signed DATE,
+            certified_date DATE,
+            period_of_performance_start_date DATE,
+            period_of_performance_current_end_date DATE);
 --
 --
 --INSERT INTO awards_new
