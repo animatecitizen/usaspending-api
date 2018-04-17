@@ -750,7 +750,7 @@ LATERAL
      LIMIT 1
     ) as pafa_latest,
 
-LATERAL aggregate_fpds(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri, pafa.record_type)
+LATERAL aggregate_fabs(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri, pafa.record_type)
     AS fabs_agg(awarding_sub_tier_agency_c text,
                 fain text,
                 uri text,
@@ -1009,7 +1009,7 @@ LATERAL
      LIMIT 1
     ) as pafa_latest,
 
-LATERAL aggregate_fpds(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri)
+LATERAL aggregate_fabs(pafa.awarding_sub_tier_agency_c, pafa.fain, pafa.uri, pafa.record_type))
     AS fabs_agg(awarding_sub_tier_agency_c text,
                 fain text,
                 uri text,
