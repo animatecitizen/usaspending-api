@@ -426,7 +426,7 @@ SELECT
     -- foreign province
     NULL::TEXT AS recipient_location_foreign_province,
     NULL::TEXT AS recipient_location_foreign_city_name,
-    NULL::TEXT AS recipient_location_foreign_city_name,
+    NULL::TEXT AS recipient_location_foreign_postal_code,
 
     -- country
     dap_latest.legal_entity_country_code AS recipient_location_country_code,
