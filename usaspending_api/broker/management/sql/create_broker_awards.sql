@@ -35,7 +35,7 @@ $$  LANGUAGE plpgsql;
 
 DROP FUNCTION IF EXISTS aggregate_fabs(text, text, text);
 
-CREATE OR REPLACE FUNCTION aggregate_fabs(awarding_subtier_agency_code_in text, fain_in text, uri_in text, record_type_in text)
+CREATE OR REPLACE FUNCTION aggregate_fabs(awarding_subtier_agency_code_in text, fain_in text, uri_in text, record_type_in integer)
 RETURNS RECORD AS $$
 DECLARE
     result RECORD;
