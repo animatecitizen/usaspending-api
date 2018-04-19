@@ -226,7 +226,7 @@ class FilterHash(models.Model):
 
 
 class Location(DataSourceTrackedModel, DeleteIfChildlessMixin):
-    location_id = models.AutoField(primary_key=True)
+    location_id = models.BigAutoField(primary_key=True)
     location_country_code = models.TextField(blank=True, null=True, verbose_name="Location Country Code")
     country_name = models.TextField(blank=True, null=True, verbose_name="Country Name")
     state_code = models.TextField(blank=True, null=True, verbose_name="State Code")

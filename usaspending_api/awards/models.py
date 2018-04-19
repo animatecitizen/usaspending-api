@@ -142,7 +142,7 @@ class Award(DataSourceTrackedModel):
     These updates happen in our USAspending and data act broker load processes:
     see ETL\award_helpers.py for details.
     """
-
+    id = models.BigAutoField(primary_key=True)
     type = models.TextField(db_index=True, verbose_name="Award Type", null=True,
                             help_text="The mechanism used to distribute funding. The federal government can distribute "
                                       "funding in several forms. These award types include contracts, grants, loans, "
@@ -316,6 +316,7 @@ class Award(DataSourceTrackedModel):
 
 
 class TransactionNormalized(models.Model):
+    id = models.BigAutoField(primary_key=True)
     award = models.ForeignKey(Award, models.CASCADE, help_text="The award which this transaction is contained in")
     usaspending_unique_transaction_id = models.TextField(blank=True, null=True,
                                                          help_text="If this record is legacy USASpending data, this is "
@@ -324,9 +325,9 @@ class TransactionNormalized(models.Model):
                             help_text="The type for this transaction. For example, A, B, C, D", db_index=True)
     type_description = models.TextField(blank=True, verbose_name="Action Type Description", null=True,
                                         help_text="The plain text description of the transaction type")
-    period_of_performance_start_date = models.DateField(verbose_name="Period of Performance Start Date", null=True,
+    period_of_performance_start_date = models.TextField(verbose_name="Period of Performance Start Date", null=True,
                                                         help_text="The period of performance start date")
-    period_of_performance_current_end_date = models.DateField(verbose_name="Period of Performance Current End Date",
+    period_of_performance_current_end_date = models.TextField(verbose_name="Period of Performance Current End Date",
                                                               null=True,
                                                               help_text="The current end date of the period of "
                                                                         "performance")
@@ -334,8 +335,7 @@ class TransactionNormalized(models.Model):
                                    db_index=True)
     action_type = models.TextField(blank=True, null=True, help_text="The type of transaction. For example, A, B, C, D")
     action_type_description = models.TextField(blank=True, null=True)
-    federal_action_obligation = models.DecimalField(max_digits=20, db_index=True, decimal_places=2, blank=True,
-                                                    null=True,
+    federal_action_obligation = models.DecimalField(max_digits=20, db_index=True, decimal_places=2, blank=True, null=True,
                                                     help_text="The obligation of the federal government for this "
                                                               "transaction")
     original_loan_subsidy_cost = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True,
@@ -354,11 +354,9 @@ class TransactionNormalized(models.Model):
     description = models.TextField(null=True, help_text="The description of this transaction")
     place_of_performance = models.ForeignKey(Location, null=True,
                                              help_text="The location where the work on this transaction was performed")
-    drv_award_transaction_usaspend = models.DecimalField(max_digits=20, decimal_places=2, blank=True, null=True)
-    drv_current_total_award_value_amount_adjustment = models.DecimalField(max_digits=20, decimal_places=2, blank=True,
-                                                                          null=True)
-    drv_potential_total_award_value_amount_adjustment = models.DecimalField(max_digits=20, decimal_places=2, blank=True,
-                                                                            null=True)
+    drv_award_transaction_usaspend = models.TextField(blank=True, null=True)
+    drv_current_total_award_value_amount_adjustment = models.TextField(blank=True, null=True)
+    drv_potential_total_award_value_amount_adjustment = models.TextField(blank=True, null=True)
     last_modified_date = models.DateField(blank=True, null=True,
                                           help_text="The date this transaction was last modified")
     certified_date = models.DateField(blank=True, null=True, help_text="The date this transaction was certified")
