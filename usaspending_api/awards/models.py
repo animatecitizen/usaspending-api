@@ -157,8 +157,6 @@ class Award(DataSourceTrackedModel):
                                       "blanket purchase agreement. It is used to track the contract, and any "
                                       "modifications or transactions related to it. After October 2017, it is "
                                       "between 13 and 17 digits, both letters and numbers.")
-    parent_award = models.ForeignKey('awards.Award', related_name='child_award', null=True,
-                                     help_text="The parent award, if applicable")
     fain = models.TextField(db_index=True, blank=True, null=True,
                             help_text="An identification code assigned to each financial assistance award tracking "
                                       "purposes. The FAIN is tied to that award (and all future modifications to that "
@@ -325,9 +323,9 @@ class TransactionNormalized(models.Model):
                             help_text="The type for this transaction. For example, A, B, C, D", db_index=True)
     type_description = models.TextField(blank=True, verbose_name="Action Type Description", null=True,
                                         help_text="The plain text description of the transaction type")
-    period_of_performance_start_date = models.TextField(verbose_name="Period of Performance Start Date", null=True,
+    period_of_performance_start_date = models.DateField(verbose_name="Period of Performance Start Date", null=True,
                                                         help_text="The period of performance start date")
-    period_of_performance_current_end_date = models.TextField(verbose_name="Period of Performance Current End Date",
+    period_of_performance_current_end_date = models.DateField(verbose_name="Period of Performance Current End Date",
                                                               null=True,
                                                               help_text="The current end date of the period of "
                                                                         "performance")
@@ -354,9 +352,6 @@ class TransactionNormalized(models.Model):
     description = models.TextField(null=True, help_text="The description of this transaction")
     place_of_performance = models.ForeignKey(Location, null=True,
                                              help_text="The location where the work on this transaction was performed")
-    drv_award_transaction_usaspend = models.TextField(blank=True, null=True)
-    drv_current_total_award_value_amount_adjustment = models.TextField(blank=True, null=True)
-    drv_potential_total_award_value_amount_adjustment = models.TextField(blank=True, null=True)
     last_modified_date = models.DateField(blank=True, null=True,
                                           help_text="The date this transaction was last modified")
     certified_date = models.DateField(blank=True, null=True, help_text="The date this transaction was certified")
