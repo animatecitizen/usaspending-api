@@ -33,6 +33,17 @@ class DeleteIfChildlessMixin(object):
         # No child records found, so
         return self.delete()
 
+class FiscalYearFunc(models.Func):
+    """Allows Date and DateTime fields to support `__fy` operations for annotations
+
+    Requires that the FY function be defined in the database (raw SQL is in helpers.py, run in a migration)
+    """
+    lookup_name = 'fy'
+    function = 'FY'
+
+    @property
+    def output_field(self):
+        return models.IntegerField()
 
 class FiscalYear(models.Transform):
     """Allows Date and DateTime fields to support `__fy` operations
