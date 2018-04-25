@@ -1,14 +1,12 @@
 import logging
-import datetime
 
+from usaspending_api.references.abbreviations import pad_codes
 from usaspending_api.awards.models import Award, Subaward
 from usaspending_api.references.models import LegalEntity
 from usaspending_api.common.models import FiscalYearFunc
 from usaspending_api.common.views import APIDocumentationView
-from usaspending_api.common.helpers import generate_raw_quoted_query
 
-from django.db.models import F, Q, Sum, Count
-from django.db.models.functions import TruncYear, TruncMonth
+from django.db.models import Q, Sum
 from rest_framework.response import Response
 
 from usaspending_api.common.cache_decorator import cache_response
@@ -45,8 +43,7 @@ class LegalEntityViewSet(APIDocumentationView):
             'zip5': le.location.zip5,
             'location_country_code': le.location.location_country_code,
             'country_name': le.location.country_name,
-            # TODO: Figure out why this has .'s for DUNS 0000000NR
-            'congressional_code': le.location.congressional_code
+            'congressional_code': pad_codes('congressional_code', le.location.congressional_code)
         }
         # Awards Amounts
         awards_qs = Award.objects.filter(**{'recipient__{}'.format(type): id}) \
