@@ -63,9 +63,9 @@ class LegalEntityViewSet(APIDocumentationView):
         total = awards_total + subawards_total
         average = round(total / (awards_count + subawards_count), 2)
         amounts = {
-            'fy':fy,
-            'total':total,
-            'average':average
+            'fy': fy,
+            'total': total,
+            'average': average
         }
         response['results'] = {'name': le.recipient_name,
                                'duns': str(le.recipient_unique_id),

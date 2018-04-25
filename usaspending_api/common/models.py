@@ -33,6 +33,7 @@ class DeleteIfChildlessMixin(object):
         # No child records found, so
         return self.delete()
 
+
 class FiscalYearFunc(models.Func):
     """Allows Date and DateTime fields to support `__fy` operations for annotations
 
@@ -44,6 +45,7 @@ class FiscalYearFunc(models.Func):
     @property
     def output_field(self):
         return models.IntegerField()
+
 
 class FiscalYear(models.Transform):
     """Allows Date and DateTime fields to support `__fy` operations
