@@ -24,7 +24,7 @@ class LegalEntityViewSet(APIDocumentationView):
         """
         Return the view's queryset.
         """
-        response = {'results': {}}
+        response = {}
 
         logger.info('Finding legal entities with {} as {}'.format(type, id))
         le = LegalEntity.objects.filter(Q(**{type: id}))
@@ -45,36 +45,46 @@ class LegalEntityViewSet(APIDocumentationView):
             'country_name': le.location.country_name,
             'congressional_code': pad_codes('congressional_code', le.location.congressional_code)
         }
-        # Awards Amounts
-        awards_qs = Award.objects.filter(**{'recipient__{}'.format(type): id}) \
+
+        duns_to_include = [id]
+        awards_qs = Award.objects.filter(**{'recipient__{}__in'.format(type): duns_to_include}) \
             .values('latest_transaction__action_date', 'total_obligation') \
             .annotate(fy=FiscalYearFunc('latest_transaction__action_date'))\
             .values('fy', 'total_obligation').order_by('-fy')
         awards_count = awards_qs.count()
         awards_total = (awards_qs.aggregate(award_total=Sum('total_obligation'))['award_total']) \
             if awards_count else 0
-        # Subawards Amounts
-        subawards_qs = Subaward.objects.filter(**{'recipient__{}'.format(type): id}).values('amount')
+        awards_fy = awards_qs.first()['fy'] if awards_count else 0
+
+        subawards_qs = Subaward.objects.filter(**{'recipient__{}'.format(type): duns_to_include})\
+            .values('action_date', 'amount') \
+            .annotate(fy=FiscalYearFunc('action_date')) \
+            .values('fy', 'amount').order_by('-fy')
         subawards_count = subawards_qs.count()
         subawards_total = (subawards_qs.aggregate(subaward_total=Sum('amount'))['subaward_total']) \
             if subawards_count else 0
+        subawards_fy = subawards_qs.first()['fy'] if subawards_count else 0
 
-        fy = awards_qs.first()['fy']
-        total = awards_total + subawards_total
-        average = round(total / (awards_count + subawards_count), 2)
-        amounts = {
-            'fy': fy,
-            'total': total,
-            'average': average
-        }
-        response['results'] = {'name': le.recipient_name,
-                               'duns': str(le.recipient_unique_id),
-                               'parent_name': parent_le.recipient_name if parent_le else '',
-                               'parent_duns': parent_le.recipient_unique_id if parent_le else '',
-                               'location': location,
-                               'business_categories': le.business_categories,
-                               'amounts': amounts
-                               }
+        amounts = {}
+        total_count = awards_count + subawards_count
+        if total_count:
+            fy = max(awards_fy, subawards_fy)
+            total = awards_total + subawards_total
+            average = round(total / total_count, 2)
+            amounts = {
+                'fy': fy,
+                'total': total,
+                'average': average
+            }
+        response = {'name': le.recipient_name,
+                    'duns': str(le.recipient_unique_id),
+                    'parent_name': parent_le.recipient_name if parent_le else '',
+                    'parent_duns': parent_le.recipient_unique_id if parent_le else '',
+                    'location': location,
+                    'business_categories': le.business_categories,
+                    'business_types_description': le.business_types_description,
+                    'amounts': amounts
+                   }
         return Response(response)
 
 
