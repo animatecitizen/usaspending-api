@@ -1,4 +1,9 @@
-CREATE INDEX IF NOT EXISTS tmp_group_distinct_fpds_idx ON detached_award_procurement USING BTREE(
+DROP INDEX IF EXISTS tmp_group_distinct_fpds_idx;
+DROP INDEX IF EXISTS published_award_financial_assi_ordered_idx;
+DROP INDEX IF EXISTS published_award_financial_assi_ordered_2idx;
+
+
+CREATE INDEX tmp_group_distinct_fpds_idx ON detached_award_procurement USING BTREE(
     piid,
     parent_award_id,
     agency_id,
@@ -7,13 +12,13 @@ CREATE INDEX IF NOT EXISTS tmp_group_distinct_fpds_idx ON detached_award_procure
     award_modification_amendme DESC,
     transaction_number DESC);
 
-CREATE INDEX IF NOT EXISTS  published_award_financial_assi_ordered_idx ON published_award_financial_assistance USING BTREE(
+CREATE INDEX published_award_financial_assi_ordered_idx ON published_award_financial_assistance USING BTREE(
     fain,
     awarding_sub_tier_agency_c,
     action_date DESC,
     award_modification_amendme DESC);
 
-CREATE INDEX IF NOT EXISTS published_award_financial_assi_ordered_2idx ON published_award_financial_assistance USING BTREE(
+CREATE INDEX published_award_financial_assi_ordered_2idx ON published_award_financial_assistance USING BTREE(
     uri,
     awarding_sub_tier_agency_c,
     action_date DESC,
