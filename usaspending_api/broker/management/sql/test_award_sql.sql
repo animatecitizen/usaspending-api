@@ -19,7 +19,7 @@ CREATE INDEX published_award_financial_assi_ordered_2idx ON published_award_fina
     action_date DESC,
     award_modification_amendme DESC);
 
-ANALYZE VERBOSE detached_award_procurement;
+--ANALYZE VERBOSE detached_award_procurement;
 
 CREATE MATERIALIZED VIEW testing_awards_view AS
 ------------------------------------------------------------------------------
