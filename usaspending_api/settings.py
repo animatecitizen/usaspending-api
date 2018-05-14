@@ -11,6 +11,16 @@ import dj_database_url
 import sys
 from django.utils.crypto import get_random_string
 
+##### TEMP #####
+
+PROD_APP_DB_TIMEOUT_IDENTIFIER = 'db_timeout:production:app'
+STAGING_DB_TIMEOUT_IDENTIFIER = 'db_timeout:staging:*'
+DEFAULT_DB_TIMEOUT_IDENTIFIER = 'db_timeout:*:*'
+
+DB_TIMEOUT_IDENTIFIER = DEFAULT_DB_TIMEOUT_IDENTIFIER
+
+################
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

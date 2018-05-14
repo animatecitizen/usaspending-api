@@ -1,11 +1,16 @@
 import warnings
+import logging
 from django.db import models
+from django.db.backends.signals import connection_created
 from django.core.cache import CacheKeyWarning
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import SearchVectorField
+from usaspending_api import settings
 from usaspending_api.awards.models import TransactionNormalized, Award
+from usaspending_api.core.db import timeouts
 
 warnings.simplefilter("ignore", CacheKeyWarning)
+logger = logging.getLogger(__name__)
 
 
 class UniversalTransactionView(models.Model):
@@ -708,3 +713,20 @@ class TransactionMatview(models.Model):
     class Meta:
         managed = False
         db_table = 'transaction_matview'
+
+
+def set_timeout_on_new_conn(sender, connection, **kwargs):
+    """
+        Rig django to set statement timeout for each new connection based on the config
+    """
+    try:
+        timeout_to_set = timeouts.DB_IDENTIFIER_AND_CONNECTION_TO_TIMEOUT_MAP[settings.DB_TIMEOUT_IDENTIFIER][connection.alias]
+    except KeyError as e:
+        logger.error("KeyError while setting DB Timeout: {0}".format(e))
+        timeout_to_set = timeouts.DEFAULT_DB_TIMEOUT_IN_MS
+
+    with connection.cursor() as cursor:
+        cursor.execute("set statement_timeout={0}".format(timeout_to_set))
+
+
+connection_created.connect(set_timeout_on_new_conn)
