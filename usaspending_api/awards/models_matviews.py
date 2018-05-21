@@ -795,7 +795,7 @@ def set_timeout_on_new_conn(sender, connection, **kwargs):
         Rig django to set statement timeout for each new connection based on the config
     """
     try:
-        timeout_to_set = timeouts.DB_IDENTIFIER_AND_CONNECTION_TO_TIMEOUT_MAP[settings.DB_TIMEOUT_IDENTIFIER][connection.alias]
+        timeout_to_set = timeouts.DB_TIMEOUT_MAP[settings.DB_TIMEOUT_IDENTIFIER][connection.alias]
     except KeyError as e:
         logger.error("KeyError while setting DB Timeout: {0}".format(e))
         timeout_to_set = timeouts.DEFAULT_DB_TIMEOUT_IN_MS
