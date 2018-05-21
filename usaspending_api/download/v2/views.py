@@ -1,4 +1,5 @@
 import boto
+import copy
 import datetime
 import json
 import os
@@ -15,15 +16,18 @@ from rest_framework.exceptions import NotFound
 
 from usaspending_api.accounts.models import FederalAccount
 from usaspending_api.awards.models import Agency
-from usaspending_api.awards.v2.filters.view_selector import download_transaction_count
 from usaspending_api.awards.v2.filters.location_filter_geocode import location_error_handling
+from usaspending_api.awards.v2.filters.sub_award import subaward_filter
+from usaspending_api.awards.v2.filters.view_selector import download_transaction_count
 from usaspending_api.awards.v2.lookups.lookups import award_type_mapping, all_award_types_mappings
-from usaspending_api.common.cache_decorator import cache_response
 from usaspending_api.common.api_versioning import api_transformations, API_TRANSFORM_FUNCTIONS
+from usaspending_api.common.cache_decorator import cache_response
 from usaspending_api.common.csv_helpers import sqs_queue
 from usaspending_api.common.exceptions import InvalidParameterException
-from usaspending_api.common.helpers import order_nested_object
+from usaspending_api.common.helpers.generic_helper import order_nested_object
 from usaspending_api.common.logging import get_remote_addr
+from usaspending_api.core.validator.award_filter import AWARD_FILTER
+from usaspending_api.core.validator.tinyshield import TinyShield
 from usaspending_api.download.filestreaming import csv_generation
 from usaspending_api.download.filestreaming.s3_handler import S3Handler
 from usaspending_api.download.helpers import (check_types_and_assign_defaults, parse_limit, validate_time_periods,
@@ -78,13 +82,6 @@ class BaseDownloadViewSet(APIDocumentationView):
         json_request = {}
         constraint_type = request_data.get('constraint_type', None)
 
-        # Overriding all other filters if the keyword filter is provided in year-constraint download
-        if constraint_type == 'year' and 'elasticsearch_keyword' in request_data['filters']:
-            request_data['filters'] = {'elasticsearch_keyword': request_data['filters']['elasticsearch_keyword'],
-                                       'award_type_codes': list(award_type_mapping.keys())}
-            request_data['limit'] = settings.MAX_DOWNLOAD_LIMIT
-            return request_data
-
         # Validate required parameters
         for required_param in ['award_levels', 'filters']:
             if required_param not in request_data:
@@ -99,6 +96,14 @@ class BaseDownloadViewSet(APIDocumentationView):
             if award_level not in VALUE_MAPPINGS:
                 raise InvalidParameterException('Invalid award_level: {}'.format(award_level))
         json_request['download_types'] = request_data['award_levels']
+
+        # Overriding all other filters if the keyword filter is provided in year-constraint download
+        # Make sure this is after checking the award_levels
+        if constraint_type == 'year' and 'elasticsearch_keyword' in request_data['filters']:
+            json_request['filters'] = {'elasticsearch_keyword': request_data['filters']['elasticsearch_keyword'],
+                                       'award_type_codes': list(award_type_mapping.keys())}
+            json_request['limit'] = settings.MAX_DOWNLOAD_LIMIT
+            return json_request
 
         if not isinstance(request_data['filters'], dict):
             raise InvalidParameterException('Filters parameter not provided as a dict')
@@ -306,8 +311,9 @@ class YearLimitedDownloadViewSet(BaseDownloadViewSet):
             raise InvalidParameterException('Missing one or more required query parameters: filters')
 
         # Validate keyword search first, remove all other filters
-        if 'keywords' in filters and len(filters.keys()) == 1:
-            request_data['filters'] = {'elasticsearch_keyword': filters['keywords']}
+        keyword_filter = filters.get('keyword', None) or filters.get('keywords', None)
+        if keyword_filter and len(filters.keys()) == 1:
+            request_data['filters'] = {'elasticsearch_keyword': keyword_filter}
             return
 
         # Validate other parameters previously required by the Bulk Download endpoint
@@ -390,18 +396,26 @@ class DownloadTransactionCountViewSet(APIDocumentationView):
     @cache_response()
     def post(self, request):
         """Returns boolean of whether a download request is greater than the max limit. """
-        json_request = request.data
+        models = [
+            {'name': 'subawards', 'key': 'subawards', 'type': 'boolean', 'default': False},
+        ]
+        models.extend(copy.deepcopy(AWARD_FILTER))
+        json_request = TinyShield(models).block(request.data)
 
         # If no filters in request return empty object to return all transactions
         filters = json_request.get('filters', {})
-        is_over_limit = False
-        queryset, model = download_transaction_count(filters)
 
-        if model in ['UniversalTransactionView']:
-            total_count = queryset.count()
+        is_over_limit = False
+
+        if json_request['subawards']:
+            total_count = subaward_filter(filters).count()
         else:
-            # "summary" materialized views are pre-aggregated and contain a counts col
-            total_count = queryset.aggregate(total_count=Sum('counts'))['total_count']
+            queryset, model = download_transaction_count(filters)
+            if model in ['UniversalTransactionView']:
+                total_count = queryset.count()
+            else:
+                # "summary" materialized views are pre-aggregated and contain a counts col
+                total_count = queryset.aggregate(total_count=Sum('counts'))['total_count']
 
         if total_count and total_count > settings.MAX_DOWNLOAD_LIMIT:
             is_over_limit = True

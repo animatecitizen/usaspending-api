@@ -29,6 +29,10 @@ MAX_DOWNLOAD_LIMIT = 500000
 # User-specified timeout limit for streaming downloads
 DOWNLOAD_TIMEOUT_MIN_LIMIT = 10
 
+API_MAX_DATE = '2020-09-30'
+API_MIN_DATE = '2000-10-01'
+API_SEARCH_MIN_DATE = '2007-10-01'
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.10/howto/deployment/checklist/
 
@@ -56,6 +60,13 @@ BULK_DOWNLOAD_AWS_REGION = ""
 MONTHLY_DOWNLOAD_S3_BUCKET_NAME = ""
 BROKER_AGENCY_BUCKET_NAME = ""
 FPDS_BUCKET_NAME = ""
+
+# Elasticsearch
+ES_HOSTNAME = ""
+TRANSACTIONS_INDEX_ROOT = os.environ.get('ES_TRX_ROOT') or 'future-transactions'
+DOWNLOAD_QUERY_SIZE = 500000
+ES_TIMEOUT = 30
+ES_REPOSITORY = ""
 
 # Application definition
 
@@ -333,14 +344,6 @@ SPAGHETTI_SAUCE = {
 # semi-terse labels used in the datastore)
 # TERSE_TO_LONG UNUSED.  IF NEEDED, change LONG_TO_TERSE to a bidict or invert the dict.
 
-# Elasticsearch
-ES_HOSTNAME = ""
-TRANSACTIONS_INDEX_ROOT = os.environ.get('ES_TRX_ROOT') or 'future-transactions'
-DOWNLOAD_QUERY_SIZE = 500000
-ES_TIMEOUT = 30
-ES_REPOSITORY = ""
-
-
 LONG_TO_TERSE_LABELS = {
     "allocation_transfer_agency_id": "allocation_transfer_agency_id",
     "agency_id": "responsible_agency_id",
@@ -356,7 +359,7 @@ LONG_TO_TERSE_LABELS = {
     "contract_authority_amount_total_cpe": "contract_authority_amount_cpe",
     "spending_authority_from_offsetting_collections_amount_cpe": "spending_authority_from_of_cpe",
     "other_budgetary_resources_amount_cpe": "other_budgetary_resources_cpe",
-    "budget_authority_available_amount_total_cpe": "budget_authority_available_cpe",
+    "total_budgetary_resources_amount_cpe": "total_budgetary_resources_cpe",
     "gross_outlay_amount_by_tas_cpe": "gross_outlay_amount_by_tas_cpe",
     "obligations_incurred_total_by_tas_cpe": "obligations_incurred_total_cpe",
     "deobligations_recoveries_refunds_by_tas_cpe": "deobligations_recoveries_r_cpe",
@@ -395,6 +398,7 @@ LONG_TO_TERSE_LABELS = {
     "ordering_period_end_date": "ordering_period_end_date",
     "action_date": "action_date",
     "action_type": "action_type",
+    "action_type_description": "action_type_description",
     "federal_action_obligation": "federal_action_obligation",
     "current_total_value_of_award": "current_total_value_award",
     "potential_total_value_of_award": "potential_total_value_awar",
@@ -429,7 +433,8 @@ LONG_TO_TERSE_LABELS = {
     "cost_accounting_standards": "cost_accounting_standards",
     "cost_or_pricing_data": "cost_or_pricing_data",
     "country_of_product_or_service_origin": "country_of_product_or_serv",
-    "davis_bacon_act": "davis_bacon_act",
+    "construction_wage_rate_requirements": "construction_wage_rate_req",
+    "construction_wage_rate_requirements_description": "construction_wage_rat_desc",
     "evaluated_preference": "evaluated_preference",
     "extent_competed": "extent_competed",
     "fed_biz_opps": "fed_biz_opps",
@@ -454,7 +459,8 @@ LONG_TO_TERSE_LABELS = {
     "recovered_materials_sustainability": "recovered_materials_sustai",
     "research": "research",
     "sea_transportation": "sea_transportation",
-    "service_contract_act": "service_contract_act",
+    "labor_standards": "labor_standards",
+    "labor_standards_description": "labor_standards_descrip",
     "small_business_competitiveness_demonstration _program": "small_business_competitive",
     "solicitation_identifier": "solicitation_identifier",
     "solicitation_procedures": "solicitation_procedures",
@@ -463,7 +469,8 @@ LONG_TO_TERSE_LABELS = {
     "program_system_or_equipment_code": "program_system_or_equipmen",
     "type_set_aside": "type_set_aside",
     "epa_designated_product": "epa_designated_product",
-    "walsh_healey_act": "walsh_healey_act",
+    "materials_supplies_article": "materials_supplies_article",
+    "materials_supplies_description": "materials_supplies_descrip",
     "transaction_number": "transaction_number",
     "sam_exception": "sam_exception",
     "city_local_government": "city_local_government",
@@ -619,8 +626,11 @@ LONG_TO_TERSE_LABELS = {
     "high_comp_officer_middle_initial": "high_comp_officer_middle_i",
     "high_comp_officer_last_name": "high_comp_officer_last_nam",
     "assistance_type": "assistance_type",
+    "assistance_type_description": "assistance_type_desc",
     "record_type": "record_type",
-    "correction_late_delete_indicator": "correction_late_delete_ind",
+    "record_type_description": "record_type_description",
+    "correction_delete_indicator": "correction_delete_indicatr",
+    "correction_delete_indicator_description": "correction_delete_ind_desc",
     "fiscal_year_and_quarter_correction": "fiscal_year_and_quarter_co",
     "sai_number": "sai_number",
     "recipient_city_code": "legal_entity_city_code",
@@ -632,6 +642,7 @@ LONG_TO_TERSE_LABELS = {
     "recipient_foreign_city_name": "legal_entity_foreign_city",
     "recipient_foreign_province_name": "legal_entity_foreign_provi",
     "business_types": "business_types",
+    "business_types_desc": "business_types_desc",
     "cfda_number": "cfda_number",
     "cfda_title": "cfda_title",
     "primary_place_of_performance_code": "place_of_performance_code",
@@ -641,5 +652,6 @@ LONG_TO_TERSE_LABELS = {
     "non_federal_funding_amount": "non_federal_funding_amount",
     "face_value_loan_guarantee": "face_value_loan_guarantee",
     "original_loan_subsidy_cost": "original_loan_subsidy_cost",
-    "business_funds_indicator": "business_funds_indicator"
+    "business_funds_indicator": "business_funds_indicator",
+    "business_funds_ind_desc": "business_funds_ind_desc"
 }
