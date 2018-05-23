@@ -6,7 +6,7 @@ from django.db import connection
 # be a different value.
 # Timeout set in DB on 27/03/2018 is 50s.
 
-DEFAULT_DB_TIMEOUT_IN_MS = 9500
+DEFAULT_DB_TIMEOUT_IN_MS = 300000
 
 default_conn = connection.settings_dict['NAME']
 

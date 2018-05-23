@@ -11,13 +11,6 @@ import dj_database_url
 import sys
 from django.utils.crypto import get_random_string
 
-##### TEMP #####
-DEFAULT_DB_TIMEOUT = 'db_timeout:*:*'
-
-DB_TIMEOUT_IDENTIFIER = DEFAULT_DB_TIMEOUT
-
-################
-
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -37,7 +30,7 @@ API_SEARCH_MIN_DATE = '2007-10-01'
 SECRET_KEY = get_random_string()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
