@@ -69,3 +69,21 @@ def test_get_csv_sources():
     assert len(csv_sources) == 1
     assert csv_sources[0].file_type == 'treasury_account'
     assert csv_sources[0].source_type == 'object_class_program_activity'
+
+
+def test_apply_annotations_to_sql():
+    sql_string = "SELECT thing_one, thing_two, thing_four, thing_six, thing_eight, CASE WHEN not_thing_three = TRUE " +\
+                 "THEN 'L' ELSE NULL END AS alias_thing_three, CASE WHEN not_thing_seven = FALSE THEN 'K' ELSE NULL " +\
+                 "END AS alias_thing_seven FROM table_name WHERE thing_one > filter_one AND thing_one < filter_two " +\
+                 "AND thing_six = filter_three"
+    aliases = ["alias_thing_one", "alias_thing_two", "alias_thing_three", "alias_thing_four", "alias_thing_six",
+               "alias_thing_seven", "alias_thing_eight"]
+
+    annotated_sql = csv_generation.apply_annotations_to_sql(sql_string, aliases)
+    annotated_sql_string = "SELECT thing_one AS alias_thing_one, thing_two AS alias_thing_two, CASE WHEN " +\
+                           "not_thing_three = TRUE THEN 'L' ELSE NULL END AS alias_thing_three, thing_four AS " +\
+                           "alias_thing_four, thing_six AS alias_thing_six, CASE WHEN not_thing_seven = FALSE THEN " +\
+                           "'K' ELSE NULL END AS alias_thing_seven, thing_eight AS alias_thing_eight FROM " +\
+                           "table_name WHERE thing_one > filter_one AND thing_one < filter_two AND thing_six = " +\
+                           "filter_three"
+    assert annotated_sql_string == annotated_sql

@@ -8,7 +8,6 @@ import subprocess
 import tempfile
 import zipfile
 
-from collections import OrderedDict
 from datetime import datetime, date
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -16,7 +15,7 @@ from django.db.models import Case, When, Value, CharField
 
 from usaspending_api.awards.v2.lookups.lookups import all_award_types_mappings as all_ats_mappings
 from usaspending_api.common.helpers.generic_helper import generate_raw_quoted_query
-from usaspending_api.download.filestreaming.csv_generation import EXCEL_ROW_LIMIT, CsvSource
+from usaspending_api.download.filestreaming.csv_generation import EXCEL_ROW_LIMIT, CsvSource, apply_annotations_to_sql
 from usaspending_api.download.helpers import split_csv, pull_modified_agencies_cgacs, multipart_upload
 from usaspending_api.download.lookups import VALUE_MAPPINGS
 from usaspending_api.etl.es_etl_helpers import csv_row_count
@@ -114,7 +113,7 @@ class Command(BaseCommand):
 
         # Create a unique temporary file with the raw query
         raw_quoted_query = generate_raw_quoted_query(source.row_emitter(None))  # None requests all headers
-        csv_query_annotated = self.apply_annotations_to_sql(raw_quoted_query, source.human_names)
+        csv_query_annotated = apply_annotations_to_sql(raw_quoted_query, source.human_names)
         (temp_sql_file, temp_sql_file_path) = tempfile.mkstemp(prefix='bd_sql_', dir='/tmp')
         with open(temp_sql_file_path, 'w') as file:
             file.write('\\copy ({}) To STDOUT with CSV HEADER'.format(csv_query_annotated))
@@ -224,27 +223,6 @@ class Command(BaseCommand):
             return False
 
         return '{}-{}-{}'.format(year, month, day)
-
-    def apply_annotations_to_sql(self, raw_query, aliases):
-        """ The csv_generation version of this function would incorrectly annotate the D1 correction_delete_ind.
-        Reusing the code but including the correction_delete_ind col for both file types """
-        select_string = re.findall('SELECT (.*?) FROM', raw_query)[0]
-
-        selects, cases = [], []
-        for select in select_string.split(','):
-            if 'CASE' not in select:
-                selects.append(select.strip())
-            else:
-                case = select.strip()
-                cases.append(case)
-                aliases.remove(re.findall('AS "(.*?)"', case)[0].strip())
-        if len(selects) != len(aliases):
-            raise Exception("Length of alises doesn't match the columns in selects")
-
-        ordered_map = OrderedDict(zip(aliases, selects))
-        selects_str = ", ".join(cases + ['{} AS \"{}\"'.format(select, alias) for alias, select in ordered_map.items()])
-
-        return raw_query.replace(select_string, selects_str)
 
     def parse_filters(self, award_types, agency):
         """ Convert readable filters to a filter object usable for the matview filter """

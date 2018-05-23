@@ -10,7 +10,6 @@ import time
 import zipfile
 import csv
 
-from collections import OrderedDict
 from django.conf import settings
 
 from usaspending_api.awards.v2.lookups.lookups import contract_type_mapping, assistance_type_mapping
@@ -296,13 +295,26 @@ def apply_annotations_to_sql(raw_query, aliases):
     want to use the efficiency of psql's \copy method and keep the column names, we need to allow these scenarios. This
     function simply outputs a modified raw sql which does the aliasing, allowing these scenarios.
     """
+    aliases_copy = list(aliases)
     select_string = re.findall('SELECT (.*?) FROM', raw_query)[0]
-    selects = [select.strip() for select in select_string.split(',')]
-    if len(selects) != len(aliases):
+
+    selects, cases = [], {}
+    for select in select_string.split(','):
+        if 'CASE' in select:
+            case, value = select.split(' AS ')
+            cases[value.strip()] = case.strip()
+            aliases_copy.remove(value.strip())
+        else:
+            selects.append(select.strip())
+
+    if len(selects) != len(aliases_copy):
         raise Exception("Length of alises doesn't match the columns in selects")
-    selects_mapping = OrderedDict(zip(aliases, selects))
-    new_select_string = ", ".join(['{} AS \"{}\"'.format(select, alias) for alias, select in selects_mapping.items()])
-    return raw_query.replace(select_string, new_select_string)
+
+    selects_list = []
+    for alias in aliases:
+        selects_list.append('{} AS {}'.format(cases[alias] if alias in cases else selects.pop(0), alias))
+
+    return raw_query.replace(select_string, ", ".join(selects_list))
 
 
 def execute_psql(temp_sql_file_path, source_path, download_job):
