@@ -4,7 +4,7 @@
 
 from collections import namedtuple, OrderedDict
 
-from usaspending_api.accounts.models import TreasuryAppropriationAccount
+from usaspending_api.accounts.models import AppropriationAccountBalances
 from usaspending_api.accounts.v2.filters.account_balances import account_balances_filter
 from usaspending_api.accounts.v2.filters.object_class_program_activity import object_class_program_activity_filter
 from usaspending_api.awards.models_matviews import UniversalAwardView, UniversalTransactionView, SubawardView
@@ -59,7 +59,7 @@ VALUE_MAPPINGS = {
     # Appropriations Account Data
     'account_balances': {
         'source_type': 'account',
-        'table': TreasuryAppropriationAccount,
+        'table': AppropriationAccountBalances,
         'table_name': 'account_balances',
         'download_name': 'account_balances',
         'filter_function': account_balances_filter

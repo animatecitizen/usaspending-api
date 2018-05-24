@@ -296,25 +296,29 @@ def apply_annotations_to_sql(raw_query, aliases):
     function simply outputs a modified raw sql which does the aliasing, allowing these scenarios.
     """
     aliases_copy = list(aliases)
-    select_string = re.findall('SELECT (.*?) FROM', raw_query)[0]
+    select_string = re.findall('SELECT (.*?) (CASE|CONCAT|FROM)', raw_query)[0]
+    if select_string[1] in ('CASE', 'CONCAT'):
+        select_string = select_string[0].strip()[:-1]
+    else:
+        select_string = select_string[0].strip()
+    select_list = [select.strip() for select in select_string.split(',')]
 
-    selects, cases = [], {}
-    for select in select_string.split(','):
-        if 'CASE' in select:
-            case, value = select.split(' AS ')
-            cases[value.strip()] = case.strip()
-            aliases_copy.remove(value.strip())
-        else:
-            selects.append(select.strip())
+    sql_funcs = {}
+    all_selects_string = re.findall('SELECT (.*?)FROM', raw_query)[0]
+    all_selects_match = re.findall('(CONCAT|CASE)(.*?) AS (.*?) ', all_selects_string)
+    for re_match in all_selects_match:
+        value = re_match[2][:-1].strip() if re_match[2][-1:] == ',' else re_match[2].strip()
+        sql_funcs[value] = '{}{}'.format(re_match[0], re_match[1])
+        aliases_copy.remove(value)
 
-    if len(selects) != len(aliases_copy):
+    if len(select_list) != len(aliases_copy):
         raise Exception("Length of alises doesn't match the columns in selects")
 
     selects_list = []
     for alias in aliases:
-        selects_list.append('{} AS {}'.format(cases[alias] if alias in cases else selects.pop(0), alias))
+        selects_list.append('{} AS {}'.format(sql_funcs[alias] if alias in sql_funcs else select_list.pop(0), alias))
 
-    return raw_query.replace(select_string, ", ".join(selects_list))
+    return raw_query.replace(all_selects_string.strip(), ", ".join(selects_list))
 
 
 def execute_psql(temp_sql_file_path, source_path, download_job):
