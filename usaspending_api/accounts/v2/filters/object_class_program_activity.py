@@ -1,11 +1,15 @@
 import logging
 
+from django.db.models import Case, CharField, OuterRef, Subquery, Value, When
+from django.db.models.functions import Concat
+
 from usaspending_api.accounts.helpers import start_and_end_dates_from_fyq
 from usaspending_api.common.exceptions import InvalidParameterException
 from usaspending_api.financial_activities.models import FinancialAccountsByProgramActivityObjectClass
 from usaspending_api.references.models import ToptierAgency
 
 logger = logging.getLogger(__name__)
+DERIVED_FIELDS = ['treasury_account_symbol', 'allocation_transfer_agency_name', 'agency_name']
 
 
 def object_class_program_activity_filter(filters):
@@ -30,4 +34,24 @@ def object_class_program_activity_filter(filters):
     else:
         raise InvalidParameterException('fy and quarter are required parameters')
 
-    return FinancialAccountsByProgramActivityObjectClass.objects.filter(**query_filters)
+    # Derive treasury_account_symbol, allocation_transfer_agency_name
+    ata_subquery = ToptierAgency.objects.filter(cgac_code=OuterRef('treasury_account__allocation_transfer_agency_id'))
+    agency_name_subquery = ToptierAgency.objects.filter(cgac_code=OuterRef('treasury_account__agency_id'))
+    queryset = FinancialAccountsByProgramActivityObjectClass.objects.annotate(
+        treasury_account_symbol=Concat(
+            'treasury_account__agency_id',
+            Value('-'),
+            Case(When(treasury_account__availability_type_code='X', then=Value('X')),
+                 default=Concat('treasury_account__beginning_period_of_availability', Value('/'),
+                                'treasury_account__ending_period_of_availability'),
+                 output_field=CharField()),
+            Value('-'),
+            'treasury_account__main_account_code',
+            Value('-'),
+            'treasury_account__sub_account_code',
+            output_field=CharField()),
+        allocation_transfer_agency_name=Value(Subquery(ata_subquery.values('name')[:1]), output_field=CharField()),
+        agency_name=Value(Subquery(agency_name_subquery.values('name')[:1]), output_field=CharField())
+    )
+
+    return queryset.filter(**query_filters)

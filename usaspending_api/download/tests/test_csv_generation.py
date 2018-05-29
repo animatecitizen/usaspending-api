@@ -1,11 +1,8 @@
-import pytest
-
 from unittest.mock import MagicMock
 
 from usaspending_api.awards.v2.lookups.lookups import award_type_mapping
 from usaspending_api.download.filestreaming import csv_generation
 from usaspending_api.download.lookups import VALUE_MAPPINGS
-from usaspending_api.download.v2.download_column_historical_lookups import query_paths
 
 
 def test_get_awards_csv_sources():
@@ -16,6 +13,7 @@ def test_get_awards_csv_sources():
         "filters": {'award_type_codes': list(award_type_mapping.keys())}
     })
     assert len(csv_sources) == 2
+    VALUE_MAPPINGS['awards']['filter_function'] = original
     assert csv_sources[0].file_type == 'd1'
     assert csv_sources[0].source_type == 'awards'
     assert csv_sources[1].file_type == 'd2'
@@ -30,6 +28,7 @@ def test_get_transactions_csv_sources():
         "filters": {'award_type_codes': list(award_type_mapping.keys())}
     })
     assert len(csv_sources) == 2
+    VALUE_MAPPINGS['transactions']['filter_function'] = original
     assert csv_sources[0].file_type == 'd1'
     assert csv_sources[0].source_type == 'transactions'
     assert csv_sources[1].file_type == 'd2'
@@ -44,6 +43,7 @@ def test_get_sub_awards_csv_sources():
         "filters": {'award_type_codes': list(award_type_mapping.keys())}
     })
     assert len(csv_sources) == 2
+    VALUE_MAPPINGS['sub_awards']['filter_function'] = original
     assert csv_sources[0].file_type == 'd1'
     assert csv_sources[0].source_type == 'sub_awards'
     assert csv_sources[1].file_type == 'd2'
@@ -58,6 +58,7 @@ def test_get_account_balances_csv_sources():
         "account_level": "treasury_account",
         "filters": {}
     })
+    VALUE_MAPPINGS['account_balances']['filter_function'] = original
     assert len(csv_sources) == 1
     assert csv_sources[0].file_type == 'treasury_account'
     assert csv_sources[0].source_type == 'account_balances'
@@ -71,6 +72,7 @@ def test_get_object_class_program_activity_csv_sources():
         "account_level": "treasury_account",
         "filters": {}
     })
+    VALUE_MAPPINGS['object_class_program_activity']['filter_function'] = original
     assert len(csv_sources) == 1
     assert csv_sources[0].file_type == 'treasury_account'
     assert csv_sources[0].source_type == 'object_class_program_activity'

@@ -308,6 +308,8 @@ def apply_annotations_to_sql(raw_query, aliases):
     all_selects_match = re.findall('(CONCAT|CASE)(.*?) AS (.*?) ', all_selects_string)
     for re_match in all_selects_match:
         value = re_match[2][:-1].strip() if re_match[2][-1:] == ',' else re_match[2].strip()
+        value = value[:-1] if (value[-1:] == "\"" or value[-1:] == "'") else value
+        value = value[1:] if (value[:1] == "\"" or value[:1] == "'") else value
         sql_funcs[value] = '{}{}'.format(re_match[0], re_match[1])
         aliases_copy.remove(value)
 
