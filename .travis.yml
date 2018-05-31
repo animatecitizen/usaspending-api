@@ -13,13 +13,14 @@ addons:
     packages:
     - postgresql-10
     - postgresql-client-10
+  environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgres
+    - POSTGRES_DB=usaspending_api
 
 env:
   global:
   - PGPORT=5433
-  - POSTGRES_USER=postgres
-  - POSTGRES_PASSWORD=postgres
-  - POSTGRES_DB=usaspending_api
   - DATABASE_URL=postgres://postgres:postgres@localhost/usaspending_api
   - DJANGO_SETTINGS_MODULE='usaspending_api.settings'
   - ES_HOSTNAME='http://localhost:9200'
@@ -33,6 +34,7 @@ before_script:
 - sed -i 's/ES_HOSTNAME = ""/ES_HOSTNAME = os.environ.get("ES_HOSTNAME")/' usaspending_api/settings.py
 
 script:
+- psql $DATABASE_URL -c "SELECT * FROM pg_user" -v ON_ERROR_STOP=1
 - flake8
 - pytest --cov=usaspending_api -x
 - python manage.py migrate
