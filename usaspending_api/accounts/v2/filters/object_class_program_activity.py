@@ -50,8 +50,8 @@ def object_class_program_activity_filter(filters):
             Value('-'),
             'treasury_account__sub_account_code',
             output_field=CharField()),
-        allocation_transfer_agency_name=Value(Subquery(ata_subquery.values('name')[:1]), output_field=CharField()),
-        agency_name=Value(Subquery(agency_name_subquery.values('name')[:1]), output_field=CharField())
+        allocation_transfer_agency_name=Subquery(ata_subquery.values('name')[:1]),
+        agency_name=Subquery(agency_name_subquery.values('name')[:1])
     )
 
     return queryset.filter(**query_filters)
