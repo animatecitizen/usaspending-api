@@ -17,6 +17,9 @@ addons:
 env:
   global:
   - PGPORT=5433
+  - POSTGRES_USER=postgres
+  - POSTGRES_PASSWORD=postgres
+  - POSTGRES_DB=usaspending_api
   - DATABASE_URL=postgres://postgres@localhost/usaspending_api
   - DJANGO_SETTINGS_MODULE='usaspending_api.settings'
   - ES_HOSTNAME='http://localhost:9200'
@@ -26,7 +29,6 @@ install:
 - pip install coveralls
 
 before_script:
-- psql -c "CREATE DATABASE usaspending_api;" -U postgres
 - psql -c "CREATE USER readonly;"
 - sed -i 's/ES_HOSTNAME = ""/ES_HOSTNAME = os.environ.get("ES_HOSTNAME")/' usaspending_api/settings.py
 
