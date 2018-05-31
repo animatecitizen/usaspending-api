@@ -20,7 +20,7 @@ env:
   - POSTGRES_USER=postgres
   - POSTGRES_PASSWORD=postgres
   - POSTGRES_DB=usaspending_api
-  - DATABASE_URL=postgres://postgres@localhost/usaspending_api
+  - DATABASE_URL=postgres://postgres:postgres@localhost/usaspending_api
   - DJANGO_SETTINGS_MODULE='usaspending_api.settings'
   - ES_HOSTNAME='http://localhost:9200'
 
@@ -34,7 +34,7 @@ before_script:
 
 script:
 - flake8
-- pytest --cov=usaspending_api
+- pytest --cov=usaspending_api -x
 - python manage.py migrate
 - psql $DATABASE_URL -f usaspending_api/database_scripts/matviews/functions_and_enums.sql -v ON_ERROR_STOP=1 --quiet
 - python usaspending_api/database_scripts/matview_generator/matview_sql_generator.py --dest='temp_sql/' --quiet
