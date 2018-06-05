@@ -173,7 +173,7 @@
     }, {
       "name": "total_obl_bin",
       "where": "action_date >= '2007-10-01'",
-      "columns": [{"name": "total_obl_bin"}, {"name": "action_date"}]
+      "columns": [{"name": "total_obl_bin"}]
     }, {
       "name": "total_subsidy_cost",
       "where": "total_subsidy_cost IS NOT NULL AND action_date >= '2007-10-01'",
